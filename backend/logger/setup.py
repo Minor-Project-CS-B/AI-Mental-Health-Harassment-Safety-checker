@@ -1,7 +1,7 @@
 """
 logger/setup.py
 ───────────────
-Central logging configuration for SafeSpace backend.
+Central logging configuration for AIMHHC backend.
 Creates separate log files per category with daily rotation.
 
 Log files created inside /logs/:

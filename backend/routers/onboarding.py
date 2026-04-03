@@ -90,16 +90,16 @@ def _build_profile_summary(risk_level, sentiment, kw_matches) -> str:
     if risk_level.value == "high":
         return (
             "Your responses suggest you may be going through a significantly difficult time. "
-            "SafeSpace will check in with you regularly and make sure you have access to support."
+            "AIMHHC will check in with you regularly and make sure you have access to support."
         )
     elif risk_level.value == "medium":
         cat_str = " and ".join(categories[:2]) if categories else "stress"
         return (
             f"It looks like you're dealing with some {cat_str}. "
-            "That's completely understandable — SafeSpace is here to support you."
+            "That's completely understandable — AIMHHC is here to support you."
         )
     else:
         return (
             "You seem to be in a relatively good place right now. "
-            "SafeSpace will help you stay that way with regular check-ins and resources."
+            "AIMHHC will help you stay that way with regular check-ins and resources."
         )

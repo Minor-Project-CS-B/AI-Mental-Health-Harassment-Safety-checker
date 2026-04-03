@@ -36,7 +36,7 @@ async def send_message(
     """
     Main chat endpoint.
     - Stores user message
-    - Gets AI reply from Claude
+    - Gets AI reply 
     - Runs background sentiment/keyword analysis on user message
     - Updates risk level if signals are significant
     - Stores assistant reply

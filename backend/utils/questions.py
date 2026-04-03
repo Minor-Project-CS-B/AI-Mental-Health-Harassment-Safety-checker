@@ -70,7 +70,7 @@ ONBOARDING_QUESTIONS = [
     },
     {
         "id":      "ob10",
-        "text":    "What brings you to SafeSpace today?",
+        "text":    "What brings you to AIMHHC today?",
         "options": [
             "Just curious / exploring",
             "Managing stress or anxiety",

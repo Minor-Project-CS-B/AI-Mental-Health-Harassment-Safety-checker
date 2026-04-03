@@ -14,11 +14,11 @@ app_logger = get_app_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_uvicorn_logging()
-    app_logger.info("SafeSpace backend starting up...")
+    app_logger.info("AIMHHC backend starting up...")
     await connect_db()
     app_logger.info("Database connected. Server ready.")
     yield
-    app_logger.info("SafeSpace backend shutting down...")
+    app_logger.info("AIMHHC backend shutting down...")
     await close_db()
 
 
