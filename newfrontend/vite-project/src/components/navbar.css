@@ -1,0 +1,38 @@
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 15px 40px;
+
+  background: linear-gradient(135deg, #6c63ff, #8a84ff);
+  color: white;
+
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.nav-links  {
+  display: flex;
+  gap: 25px;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: white;
+  font-size: 16px;
+
+  padding: 6px 10px;
+  border-radius: 6px;
+
+  transition: 0.3s;
+}
+
+.nav-link:hover {
+  background: rgba(255,255,255,0.25);
+  transform: translateY(-2px);
+}
