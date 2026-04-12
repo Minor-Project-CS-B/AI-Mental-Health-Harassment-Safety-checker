@@ -19,43 +19,60 @@
 
 
 import React, { useState } from 'react';
+import logo from '../assets/logo minor.jpg'; 
+
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   // Function to quickly redirect to a neutral site for safety
   const handleQuickExit = () => {
-    window.location.href = "https://www.google.com/search?q=weather";
+    
+    window.location.href = "http://localhost:5173/";
   };
+
+
 
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           
-          {/* Logo Section */}
+          {/* Updated Logo Section */}
           <div className="flex-shrink-0 flex items-center">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-2">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
-            <span className="font-bold text-xl text-gray-800 tracking-tight">
-              Safe<span className="text-blue-600">Mind</span>
-            </span>
+            <a href="/" className="flex items-center">
+              <img 
+                src={logo} 
+                alt="AIMHHC logo" 
+                className="h-10 w-auto mr-3 rounded-lg" 
+              />
+              <span className="font-bold text-xl text-gray-800 tracking-tight">
+                AI<span className="text-blue-600">MH</span>HC
+              </span>
+            </a>
           </div>
+
+          {/* Desktop Links ... Rest of your code */}
+
+
+
+
+          
 
           {/* Desktop Links */}
           <div className="hidden md:flex space-x-8 items-center">
             <a href="/" className="text-gray-600 hover:text-blue-600 font-medium transition">Home</a>
-            <a href="" className="text-gray-600 hover:text-blue-600 font-medium transition">Assessment</a>
-            <a href="#" className="text-gray-600 hover:text-blue-600 font-medium transition">Safety Tips</a>
-            <a href="#" className="text-gray-600 hover:text-blue-600 font-medium transition">Helplines</a>
+            <a href="/chat" className="text-gray-600 hover:text-blue-600 font-medium transition">AI Chat</a>
+            <a href="/assessment" className="text-gray-600 hover:text-blue-600 font-medium transition">Assessment</a>
+            <a href="/dashboard" className="text-gray-600 hover:text-blue-600 font-medium transition">DashBoard</a>
+            <a href="/help" className="text-gray-600 hover:text-blue-600 font-medium transition">Help And Support</a>
             
             {/* Quick Exit Button (Desktop) */}
             <button 
               onClick={handleQuickExit}
               className="bg-red-50 text-red-600 px-4 py-2 rounded-full text-sm font-bold border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"
             >
-              QUICK EXIT
+               LogOut
             </button>
           </div>
 

@@ -1,39 +1,41 @@
+import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
-import { ThemeProvider } from "./context/ThemeContext";
+import Landing from "./pages/Home .jsx";
+import Login from "./pages/login.jsx";
+import Register from "./pages/register.jsx";
+import Onboarding from "./pages/onboarding.jsx";
+import Dashboard from "./pages/dashboard";
+import Chat from "./pages/chat";
+import Assessment from "./pages/questionnarie";
+import Help from "./pages/help.jsx";
 
-import Home        from "./pages/Home .jsx";
-import Assessment  from "./pages/questionnarie.jsx";
-import Result      from "./pages/result.jsx";
-import Privacy     from "./pages/privacy.jsx";
-import Dashboard   from "./pages/dashboard.jsx";
 
-// Naye pages
-import Landing     from "./pages/Landing.jsx";
-import Login       from "./pages/Login.jsx";
-import Support     from "./pages/Support.jsx";
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Purane routes */}
-            <Route path="/"            element={<Home />} />
-            <Route path="/questions"   element={<Assessment />} />
-            <Route path="/result"      element={<Result />} />
-            <Route path="/privacy"     element={<Privacy />} />
-            <Route path="/dashboard"   element={<Dashboard />} />
+    <BrowserRouter>
+      <Routes>
 
-            {/* Naye routes */}
-            <Route path="/landing"     element={<Landing setPage={() => {}} />} />
-            <Route path="/login"       element={<Login   setPage={() => {}} />} />
-            <Route path="/support"     element={<Support setPage={() => {}} />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+        <Route path="/" element={<Landing />} />
+
+        <Route path="/register" element={<Register />} />
+
+        <Route path="/login" element={< Login />} />
+
+        <Route path="/onboarding" element={<  Onboarding />} />
+
+        <Route path="/dashboard" element={<Dashboard />} />
+
+        <Route path="/assessment" element={<Assessment />} />
+
+        <Route path="/chat" element={<Chat />} />
+
+        <Route path="/help" element={<Help />} />
+
+       
+
+      </Routes>
+    </BrowserRouter>
   );
 }
 

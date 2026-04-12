@@ -81,4 +81,18 @@ ONBOARDING_QUESTIONS = [
         "scores":  [0, 1, 2, 3, 4],
         "emoji":   ["🔍", "😰", "😔", "😟", "🚨"],
     },
+    {
+        "id":      "ob11",
+        "text":    "What is your gender?",
+        "options": ["Male", "Female", "LGBTQ+", "Prefer not to say"],
+        "scores":  [0, 1, 2, 3],
+        "emoji":   ["♂", "♀", "⚧", "❓"],
+    },
+    {
+        "id":      "ob12",
+        "text":    "What is your age range?",
+        "options": ["18-24", "25-34", "35-44", "45-54", "55+"],
+        "scores":  [0, 1, 2, 3, 4],
+        "emoji":   ["👶", "🧑", "🧔", "🧓", "👴"],
+    },
 ]

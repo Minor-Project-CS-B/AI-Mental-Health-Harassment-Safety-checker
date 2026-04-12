@@ -1,385 +1,213 @@
-// import Navbar from "../components/Navbar.jsx";
-     
-// function Questionnaire() {
-//   return (
-//     <div>
-//       <Navbar/>
-//       <h2>Mental Health Assessment</h2>
-
-//       <p>Question 1: How have you been feeling recently?</p>
-
-//       <button>😊 Good</button>
-//       <button>😐 Neutral</button>
-//       <button>😟 Stressed</button>
-//       <button>😢 Very Sad</button>
-
-//     </div>
-//   );
-// }
-
-// export default Questionnaire;
-import Navbar from "../components/Navbar.jsx";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// 1. Import icons (Rename BarChart icon to BarChartIcon to avoid conflict)
-import { ChevronRight, FileHeart, ShieldAlert, Zap, Mic, BarChart as BarChartIcon, Users, Repeat } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle, Brain, ShieldAlert, ArrowLeft, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { generateAssessment , submitAssessment } from '../services/api';
+import Navbar from '../components/Navbar';
 
-// 2. Import charts (Combined into one single line to avoid redeclaration)
-import { RadialBarChart, RadialBar, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-
-
-// --- CONFIGURATION DATA ---
-const totalQuestions = 8;
-const assessmentQuestions = [
-  "How often do you feel stressed or overwhelmed?",
-  "Have you felt isolated or excluded in recent interactions?",
-  "Have you experienced repeated, unwelcome advances or comments?",
-  "How often are you comfortable expressing your opinions online?",
-  "How confident are you that your online interactions are safe?",
-  "Have you noticed a change in your mood after digital communication?",
-  "Do you ever feel pressure to conform to others' expectations online?",
-  "How supported do you feel by your community when you face conflict?"
-];
-
-// --- STYLING CONSTANTS (Matched to image_1.png palette) ---
-const theme = {
-  bg: 'bg-indigo-50', // Light indigo background
-  accent: 'text-indigo-600',
-  button: 'bg-indigo-600 text-white rounded-full hover:bg-indigo-700',
-  card: 'bg-white rounded-[2rem] shadow-xl p-10 border border-slate-100',
-  textHeader: 'text-slate-900 font-extrabold',
-  textSub: 'text-slate-600',
-  emojiInactive: 'p-4 rounded-2xl bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer transition',
-  emojiActive: 'p-4 rounded-2xl bg-sky-100 text-sky-600 border border-sky-300 scale-105 shadow-md transition'
-};
-
-// Animation settings
-const fadeInOut = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -15 },
-  transition: { duration: 0.4 }
-};
-
-// ==========================================
-// MAIN ASSESSMENT COMPONENT
-// ==========================================
 const Assessment = () => {
-  const [stage, setStage] = useState('intro'); // 'intro', 'questions', 'analyzing', 'results'
-  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(1);
-  const [answers, setAnswers] = useState(Array(totalQuestions).fill(null));
-  const [analyzingComplete, setAnalyzingComplete] = useState(false);
+  const navigate = useNavigate();
+  
+  // Logic States
+  const [track, setTrack] = useState(null);
+  const [questions, setQs] = useState([]);
+  const [answers, setAns] = useState({});
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(null);
 
-  // Restart handler
-  const handleRestart = () => {
-    setStage('intro');
-    setCurrentQuestionIdx(1);
-    setAnswers(Array(totalQuestions).fill(null));
-    setAnalyzingComplete(false);
+  // 1. SELECT TRACK LOGIC (Backend Fetch)
+  const selectTrack = async (t) => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const r = await generateAssessment(t);
+      setQs(r.data.questions);
+      setTrack(t);
+    } catch {
+      setErr('Failed to load deep-dive questions.');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleSelectAnswer = (option, score, emoji) => {
+    const q = questions[currentIdx];
+    setAns(prev => ({
+      ...prev,
+      [q.id]: { question_id: q.id, question_text: q.text, answer: option, score }
+    }));
+  };
+
+  // 2. SUBMIT LOGIC (To Dashboard)
+  const handleNext = async () => {
+    const q = questions[currentIdx];
+    if (!answers[q.id]) return;
+
+    if (currentIdx < questions.length - 1) {
+      setCurrentIdx(prev => prev + 1);
+    } else {
+      setLoading(true);
+      try {
+        await submitAssessment({ track, answers: Object.values(answers) });
+        // Redirect to dashboard where the new logic-bridge charts will update
+        navigate('/dashboard');
+      } catch {
+        setErr('Submission failed. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const reset = () => {
+    setTrack(null);
+    setQs([]);
+    setAns({});
+    setCurrentIdx(0);
+  };
+
+  // --- UI PART 1: TRACK SELECTION (Attractive Modern Cards) ---
+  if (!track) return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <div className="max-w-5xl mx-auto px-6 py-20">
+        <header className="text-center mb-16">
+          <motion.h2 
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+            className="text-5xl font-black text-slate-800 tracking-tight mb-4"
+          >
+            Choose Your <span className="text-indigo-600">Focus</span>
+          </motion.h2>
+          <p className="text-slate-500 text-lg font-medium">Select a specialized track for a deeper AI analysis.</p>
+        </header>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          {[
+            { 
+              id: 'mental_health', 
+              label: 'Mental Wellbeing', 
+              icon: <Brain size={40}/>, 
+              color: 'bg-blue-600', 
+              desc: 'Deep dive into stress patterns, mood fluctuations, and emotional resilience.',
+              bg: 'bg-blue-50'
+            },
+            { 
+              id: 'harassment', 
+              label: 'Safety & Harassment', 
+              icon: <ShieldAlert size={40}/>, 
+              color: 'bg-rose-600', 
+              desc: 'Secure assessment for workplace safety and social harassment concerns.',
+              bg: 'bg-rose-50'
+            }
+          ].map((item) => (
+            <motion.button
+              whileHover={{ y: -20 }}
+              whileTap={{ scale: 0.98 }}
+              key={item.id}
+              onClick={() => selectTrack(item.id)}
+              className="relative group overflow-hidden bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 text-left transition-all"
+            >
+              <div className={`${item.bg} ${item.color.replace('bg-', 'text-')} w-20 h-20 rounded-[2rem] flex items-center justify-center mb-8 transition-transform group-hover:rotate-12`}>
+                {item.icon}
+              </div>
+              <h3 className="text-3xl font-bold text-slate-800 mb-4">{item.label}</h3>
+              <p className="text-slate-500 leading-relaxed mb-8">{item.desc}</p>
+              <div className="flex items-center gap-2 font-bold text-indigo-600">
+                Start Track <ChevronRight size={20} />
+              </div>
+              {/* Decorative background element */}
+              <div className={`absolute -right-4 -bottom-4 w-24 h-24 ${item.color} opacity-5 rounded-full`} />
+            </motion.button>
+          ))}
+        </div>
+        {err && <p className="text-center mt-8 text-red-500 font-bold">⚠️ {err}</p>}
+      </div>
+    </div>
+  );
+
+  // --- UI PART 2: QUESTION FLOW (Clean, Minimalist, Animated) ---
+  const q = questions[currentIdx];
+
   return (
-    <div className={`min-h-screen ${theme.bg} font-sans selection:bg-indigo-100`}>
-      {/* Top Background Pattern (Simulating the waves from image_1.png) */}
-      <div className="absolute top-0 left-0 w-full h-1/2 bg-sky-100/50 -z-10 rounded-b-[5rem] overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-indigo-200/50 rounded-full blur-3xl opacity-50" />
-      </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Navbar />
+      <div className="flex-1 flex items-center justify-center p-6">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-[3rem] shadow-2xl p-12 border border-slate-100 w-full max-w-4xl relative"
+        >
+          {/* Back Button */}
+          <button onClick={reset} className="absolute top-10 left-10 flex items-center gap-1 text-slate-400 font-bold hover:text-indigo-600 transition-colors">
+            <ArrowLeft size={18} /> BACK
+          </button>
 
-      {/* --- NAVBAR --- */}
-      {/* <nav className="p-8">
-        <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm text-slate-500">
-           <a href="/"className="hover:text-indigo-600 cursor-pointer">Home</a>
-          <span className="text-slate-300">•</span>
-          <span className="text-indigo-600 font-medium">Harassment Safety Check</span>
-        </div>
-      </nav> */}
-       <Navbar/>
-
-      {/* --- MAIN CONTENT AREA --- */}
-      <main className="max-w-7xl mx-auto px-4 py-12 flex justify-center items-center">
-        <AnimatePresence mode="wait">
-          {/* STAGE: INTRO (Screen 1 & 2 combined logic) */}
-          {stage === 'intro' && (
-            <motion.div key="intro" {...fadeInOut} className="grid md:grid-cols-2 gap-12 w-full">
-              {/* Card 1: Mental Health Self Assessment */}
-              <div className={`${theme.card} relative flex flex-col justify-between`}>
-                <div>
-                  <h2 className={`${theme.textHeader} text-3xl mb-6`}>Mental Health Self Assessment</h2>
-                  <p className={`${theme.textSub} mb-12`}>This check will help understand your emotional wellbeing. Answer honestly for better guidance.</p>
-                </div>
-                <div className="flex items-center justify-between mt-auto">
-                    <div className="space-y-1 text-slate-500 text-sm">
-                        <p>Estimated time: 2 minutes</p>
-                        <p>Questions: {totalQuestions}</p>
-                    </div>
-                    <button onClick={() => setStage('questions')} className={`${theme.button} px-10 py-3 font-semibold`}>
-                        Start Questions
-                    </button>
-                </div>
-                {/* SVG Illustration - Placeholder */}
-                <div className="absolute -top-10 -right-10 w-48 h-48 text-sky-300 opacity-60">
-                    <FileHeart size={192} strokeWidth={1}/>
-                </div>
-              </div>
-
-              {/* Card 2: Harassment Safety Assessment */}
-              <div className={`${theme.card} border-l-4 border-sky-400 relative`}>
-                <h2 className={`${theme.textHeader} text-3xl mb-6`}>Harassment Safety Assessment</h2>
-                <p className={`${theme.textSub} mb-12`}>Identify unsafe situations and receive safety guidance.</p>
-                <div className="flex items-center gap-8 mb-12 text-slate-500">
-                    <div className="flex items-center gap-2"><Zap size={18} className="text-sky-400"/> Anonymous</div>
-                    <div className="flex items-center gap-2"><ShieldAlert size={18} className="text-sky-400"/> Secure</div>
-                </div>
-                <button className={`${theme.button} bg-sky-600 hover:bg-sky-700 w-full py-4 text-lg font-bold`}>
-                  Start Safety Questions
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* STAGE: QUESTIONS (Screen 3 & 4 combined logic) */}
-          {stage === 'questions' && (
-            <motion.div key="questions" {...fadeInOut} className={`${theme.card} w-full max-w-4xl`}>
-              <div className="text-center mb-10">
-                <p className={`${theme.textSub} text-xl`}>Question {currentQuestionIdx} of {totalQuestions}</p>
-                <div className="w-full bg-slate-100 h-3 rounded-full mt-6 relative overflow-hidden">
-                    <motion.div 
-                        className="absolute inset-0 bg-sky-400 rounded-full"
-                        initial={{ width: '0%' }}
-                        animate={{ width: `${(currentQuestionIdx / totalQuestions) * 100}%` }}
-                        transition={{ duration: 0.5 }}
-                    />
-                </div>
-              </div>
-
-              <div className="text-center mb-16 px-10">
-                <h3 className={`${theme.textHeader} text-4xl mb-6 leading-tight`}>
-                  {assessmentQuestions[currentQuestionIdx - 1]}
-                </h3>
-              </div>
-
-              {/* Emoji Options */}
-              <div className="grid grid-cols-4 gap-6 mb-16 max-w-xl mx-auto">
-                {[
-                  { label: "Rarely", emoji: "😟" },
-                  { label: "Sometimes", emoji: "😕" },
-                  { label: "Often", emoji: "😟" },
-                  { label: "Always", emoji: "😢" }
-                ].map((option, idx) => (
-                  <div key={idx} className="text-center group" onClick={() => {
-                    const newAnswers = [...answers];
-                    newAnswers[currentQuestionIdx - 1] = idx;
-                    setAnswers(newAnswers);
-                  }}>
-                    <div className={answers[currentQuestionIdx - 1] === idx ? theme.emojiActive : theme.emojiInactive}>
-                      <span className="text-4xl">{option.emoji}</span>
-                    </div>
-                    <p className={`mt-3 text-sm font-medium ${answers[currentQuestionIdx - 1] === idx ? theme.accent : 'text-slate-500'}`}>{option.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Description Input */}
-              <div className="mb-16">
-                <input 
-                    type="text" 
-                    placeholder="Describe your experience (optional)" 
-                    className="w-full border-b border-slate-300 pb-3 text-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400"
-                />
-              </div>
-
-              {/* Navigation */}
-              <div className="flex justify-between items-center">
-                <button 
-                  disabled={currentQuestionIdx === 1}
-                  onClick={() => setCurrentQuestionIdx(prev => prev - 1)}
-                  className={`${theme.button} bg-slate-100 text-slate-700 hover:bg-slate-200 px-8 py-3 disabled:opacity-50`}
-                >
-                  Previous
-                </button>
-                <button 
-                  onClick={() => {
-                    if (currentQuestionIdx < totalQuestions) {
-                      setCurrentQuestionIdx(prev => prev + 1);
-                    } else {
-                      setStage('analyzing');
-                    }
-                  }}
-                  className={`${theme.button} px-12 py-3 font-semibold group flex items-center gap-2`}
-                >
-                  {currentQuestionIdx < totalQuestions ? 'Next' : 'Submit'}
-                  <ChevronRight size={20} className="group-hover:translate-x-1 transition"/>
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* STAGE: ANALYZING (Screen 5) */}
-          {stage === 'analyzing' && (
-            <motion.div key="analyzing" {...fadeInOut} className="w-full text-center flex flex-col items-center">
-              {/* Complex Animation (Simplified Spinner + Tap to Speak) */}
-              <div className="relative mb-16 w-80 h-80">
-                {/* Simulated Wave Background (image_1.png has these internal waves) */}
-                <motion.div 
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }} 
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute inset-0 bg-sky-200 rounded-full scale-105"
-                />
-                
-                {/* Analysis Circle */}
-                <div className="absolute inset-0 bg-indigo-950 rounded-full p-4 flex items-center justify-center shadow-2xl border-4 border-sky-300">
-                    <div className="w-1/2 h-1/2 border-4 border-sky-400 border-dashed rounded-full animate-spin-slow"/>
-                </div>
-
-                {/* Satellite Floating Icons */}
-                <div className="absolute -top-10 -left-10 p-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-sky-300 shadow-xl">
-                    <BarChart size={36}/>
-                </div>
-                <div className="absolute top-1/2 -right-16 p-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-red-300 shadow-xl">
-                    <Zap size={36}/>
-                </div>
-              </div>
-
-              <h2 className={`${theme.textHeader} text-4xl mb-6 text-slate-800`}>Analyzing Your Responses...</h2>
-              <p className={`${theme.textSub} text-xl max-w-xl mx-auto mb-16`}>Our system will analyze anonymously and securely.</p>
-              
-              <button 
-                onClick={() => setStage('results')} 
-                className={`${theme.button} bg-sky-600 hover:bg-sky-700 px-12 py-4 text-xl font-bold flex items-center gap-3`}
-              >
-                <Mic size={24}/>
-                Tap to speak
-              </button>
-            </motion.div>
-          )}
-
-          {/* STAGE: RESULTS (Screen 6) */}
-         
-
-// --- STAGE: RESULTS DASHBOARD ---
-
-
-// --- STAGE: RESULTS DASHBOARD (Re-imagined from user sketch image_11.png) ---
-{stage === 'results' && (
-  <motion.div key="results" {...fadeInOut} className="w-full max-w-7xl mx-auto space-y-10">
-    
-    <div className="grid lg:grid-cols-5 gap-10 items-start">
-      
-      {/* LEFT: Risk Indicator (Circular Gauge) */}
-      <div className={`${theme.card} lg:col-span-2 flex flex-col items-center justify-center p-12 text-center h-full relative overflow-hidden group`}>
-        {/* Subtle background color-zone indicator */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-orange-100/30 to-orange-100/50 -z-10"/>
-
-        <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-4">Final Safety Analysis</h3>
-        
-        <div className="w-full h-80 mt-6 relative">
-          <ResponsiveContainer width="100%" height="100%">
-            {/* Custom Radial Chart with multiple segments for Low/Med/High areas */}
-            <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" barSize={25} data={[
-              { name: 'Low', value: 33, fill: '#86efac', cornerRadius: 0 }, // Green zone
-              { name: 'Medium', value: 66, fill: '#fdba74', cornerRadius: 0 }, // Orange zone
-              { name: 'High', value: 100, fill: '#fca5a5', cornerRadius: 0 }, // Red zone
-              { name: 'Your Score', value: 65, fill: '#4f46e5', cornerRadius: 10 } // Actual score pointer
-            ]} startAngle={180} endAngle={0}>
-                {/* Gauge Background Segments */}
-                <RadialBar dataKey="value" />
-            </RadialBarChart>
-          </ResponsiveContainer>
-          
-          {/* Main Score & Risk Label */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center top-10">
-            <span className="text-sm text-slate-400 font-medium uppercase tracking-widest">Risk Level</span>
-            <span className="text-6xl font-black text-indigo-700 mt-2">MEDIUM</span>
-            <span className="text-xs text-indigo-500 font-bold bg-indigo-50 px-3 py-1 rounded-full mt-4 border border-indigo-100 shadow-[0_0_10px_rgba(79,70,229,0.2)]">Analysis Complete</span>
+          <div className="text-center mb-12">
+            <span className="bg-indigo-50 text-indigo-600 px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+              {track.replace('_', ' ')}
+            </span>
+            <div className="flex justify-center gap-2 mt-6 mb-2">
+              {questions.map((_, i) => (
+                <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i <= currentIdx ? 'w-8 bg-indigo-600' : 'w-2 bg-slate-100'}`} />
+              ))}
+            </div>
+            <p className="text-slate-400 font-bold text-sm">Question {currentIdx + 1} of {questions.length}</p>
           </div>
-        </div>
 
-        <p className="text-sm text-slate-600 max-w-sm mt-8 leading-relaxed">
-          The AI detected consistent signals of anxiety and high stress in your responses. This indicates a medium risk level.
-        </p>
-      </div>
+          <div className="min-h-[160px] flex items-center justify-center text-center px-4 mb-12">
+            <AnimatePresence mode="wait">
+              <motion.h3 
+                key={currentIdx}
+                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                className="text-4xl font-black text-slate-800 leading-tight"
+              >
+                {q?.text}
+              </motion.h3>
+            </AnimatePresence>
+          </div>
 
-      {/* RIGHT: 5-Factor Analysis (Polished Bar Chart) */}
-      <div className={`${theme.card} lg:col-span-3 h-full`}>
-        <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-10 text-center lg:text-left">Factor Profile (Visual Analysis)</h3>
-        
-        <div className="w-full h-[450px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={[
-              { factor: 'Happiness', score: 30, fill: '#86efac' }, // Green (Positive)
-              { factor: 'Confidence', score: 45, fill: '#a7f3d0' }, // Green (Positive)
-              { factor: 'Social Involvement', score: 40, fill: '#f97316' }, // Orange (Neutral)
-              { factor: 'Anxiety', score: 75, fill: '#fdba74' }, // Orange (Neutral)
-              { factor: 'Stress', score: 85, fill: '#fca5a5' }  // Red (Negative)
-            ]} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="factor" axisLine={{ stroke: '#e2e8f0' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 13, fontWeight: 500 }} />
-              <YAxis domain={[0, 100]} hide={true} />
-              
-              {/* Reference Lines/Areas (Matched to image_11.png zones) */}
-              <Tooltip cursor={{ fill: 'rgba(79,70,229,0.05)' }} contentStyle={{ borderRadius: '1rem', border: '1px solid #e2e8f0', padding: '12px' }} itemStyle={{color: '#1e293b'}} formatter={(value) => `${value}%`}/>
-
-              <Bar dataKey="score" radius={[15, 15, 0, 0]}>
-                {/* Dynamically assign the correct 'fill' color based on the data object */}
-                {
-                    [{factor: 'H', score: 30, fill: '#86efac'}, {factor: 'C', score: 45, fill: '#a7f3d0'}].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))
-                }
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <p className="text-xs text-center text-slate-400 mt-6 italic">Data points derived from conversational sentiment and entity analysis.</p>
-      </div>
-    </div>
-
-    {/* DOWN SIDE: Actions & Support (Updated from previous version) */}
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <div className="bg-indigo-600 p-8 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
-            <div className="relative z-10">
-                <h3 className="text-xl font-bold mb-3 flex items-center gap-2"><ShieldAlert size={20}/> Urgent SOS Helpline</h3>
-                <p className="text-indigo-100 text-sm mb-6">If you feel unsafe right now, connect with our 24/7 helpline.</p>
-                <button className="w-full bg-white text-indigo-600 py-4 rounded-xl font-extrabold hover:bg-indigo-50 transition flex items-center justify-center gap-2 scale-100 hover:scale-105 shadow-md">
-                    <Zap size={20}/> CALL 1-800-SAFE
+          {/* Options (Using Emoji & Scores from Backend) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+            {q?.options.map((opt, i) => {
+              const selected = answers[q.id]?.answer === opt;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleSelectAnswer(opt, q.scores[i], q.emoji[i])}
+                  className={`py-6 px-8 rounded-[2rem] font-bold text-lg transition-all border-2 flex items-center justify-between ${
+                    selected 
+                    ? "bg-indigo-600 border-indigo-600 text-white shadow-xl scale-[1.02]" 
+                    : "bg-slate-50 border-transparent text-slate-600 hover:border-indigo-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl bg-white/10 p-2 rounded-xl">{q.emoji[i]}</span>
+                    {opt}
+                  </div>
+                  {selected && <CheckCircle size={24} />}
                 </button>
-            </div>
-            <div className="absolute -bottom-10 -right-10 text-indigo-500/20 group-hover:scale-110 transition-transform">
-                <ShieldAlert size={200} />
-            </div>
-        </div>
+              );
+            })}
+          </div>
 
-        <div className={`${theme.card} !p-6 flex flex-col justify-between`}>
-            <div>
-                <h4 className="font-bold text-slate-800 mb-4">Analysis Report</h4>
-                <p className="text-slate-500 text-sm mb-6">A detailed AI report containing key conversation data and analysis insights.</p>
-            </div>
-            <button className="w-full flex items-center justify-center gap-3 bg-white text-slate-800 p-4 rounded-2xl border border-slate-200 hover:bg-slate-100 transition font-medium">
-                <BarChart size={24}/> Download PDF (AI Analysis)
+          <div className="flex justify-center">
+            <button 
+              onClick={handleNext}
+              disabled={!answers[q?.id] || loading}
+              className="group bg-slate-900 text-white px-16 py-5 rounded-[2rem] font-black text-xl flex items-center gap-3 shadow-2xl hover:bg-indigo-600 transition-all disabled:opacity-20 disabled:grayscale"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  {currentIdx === questions.length - 1 ? 'Analyze My Profile' : 'Continue'}
+                  <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
-        </div>
-
-        <div className={`${theme.card} !p-6 flex flex-col justify-between md:col-span-2 lg:col-span-1`}>
-            <div>
-                <h4 className="font-bold text-slate-800 mb-4">Mental Health Tips</h4>
-                <p className="text-slate-500 text-sm mb-6">Actionable strategies and exercises tailored to your profile.</p>
-            </div>
-            <button className="w-full flex items-center justify-center gap-3 bg-sky-600 text-white p-4 rounded-2xl hover:bg-sky-700 transition font-medium">
-                <Users size={24}/> View My Tips (3)
-            </button>
-        </div>
-    </div>
-
-    {/* Bottom Control Bar */}
-    <div className="mt-10 flex justify-center gap-4">
-        <button onClick={handleRestart} className="px-8 py-3 rounded-2xl font-bold text-slate-500 hover:bg-white transition flex items-center gap-2">
-            <Repeat size={18}/> Reassess Conversation
-        </button>
-    </div>
-  </motion.div>
-)}
-        </AnimatePresence>
-      </main>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 };
