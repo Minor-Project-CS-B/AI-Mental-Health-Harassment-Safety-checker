@@ -2,16 +2,23 @@
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
+.env
 
 # Virtual env
 venv/
 env/
 .venv/
 
-# Environment variables
-.env
+# Logs
+backend/logs/
+*.log
 
-# IDE
-.vscode/
-.idea/
+# Node
+node_modules/
+frontend/node_modules/
+frontend/.cache/
+
+# Build cache
+.cache/
+dist/
+build/

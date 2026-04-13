@@ -1,6 +1,0 @@
-2026-04-13 17:37:59 | INFO     | chat | Chat message | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | type=text
-2026-04-13 17:38:22 | INFO     | chat | Chat message | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | type=text
-2026-04-13 17:39:21 | INFO     | chat | Chat message | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | type=text
-2026-04-13 17:42:01 | INFO     | chat | Voice transcription | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | file=recording.webm | type=audio/webm
-2026-04-13 17:44:13 | INFO     | chat | Voice transcription | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | file=recording.webm | type=audio/webm
-2026-04-13 17:49:19 | INFO     | chat | Chat message | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | type=text
