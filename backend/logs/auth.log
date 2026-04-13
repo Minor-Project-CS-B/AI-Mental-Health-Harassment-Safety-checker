@@ -1,0 +1,17 @@
+2026-04-05 13:18:49 | INFO     | auth | New user registered: username=ashu_10 email=swatitiwari9981@gmail.com id=3a605fda-5721-4b88-950e-10fd7bcfe110
+2026-04-05 13:18:50 | WARNING  | auth | Magic link email failed for user=3a605fda-5721-4b88-950e-10fd7bcfe110 email=swatitiwari9981@gmail.com
+2026-04-05 13:30:05 | INFO     | auth | New user registered: username=shalu_10 email=swatitiwari9981@gmail.com id=ba8cd51c-2a5f-4bcf-af16-4f83f995351a
+2026-04-05 13:30:10 | WARNING  | auth | Magic link email failed for user=ba8cd51c-2a5f-4bcf-af16-4f83f995351a email=swatitiwari9981@gmail.com
+2026-04-13 17:22:23 | WARNING  | auth | Failed login attempt for username=swati_10
+2026-04-13 17:22:47 | WARNING  | auth | Failed login attempt for username=swati_10
+2026-04-13 17:22:59 | WARNING  | auth | Failed login attempt for username=swati
+2026-04-13 17:24:15 | INFO     | auth | New user registered: username=swati123 email=swati27@cs141satiengg.in id=b4879be9-2cf6-4686-b534-a264b7374380
+2026-04-13 17:24:21 | INFO     | auth | Magic link sent successfully to swati27@cs141satiengg.in
+2026-04-13 17:25:34 | INFO     | auth | New user registered: username=Swati123 email=swati27cs141@satiengg.in id=39c25e39-742c-43f1-8fbc-9080c828efce
+2026-04-13 17:25:38 | INFO     | auth | Magic link sent successfully to swati27cs141@satiengg.in
+2026-04-13 17:25:57 | INFO     | auth | User logged in: username=Swati123 id=39c25e39-742c-43f1-8fbc-9080c828efce
+2026-04-13 17:29:03 | WARNING  | auth | Failed login attempt for username=Swati_10
+2026-04-13 17:29:16 | WARNING  | auth | Failed login attempt for username=Swati
+2026-04-13 17:31:24 | INFO     | auth | New user registered: username=naman email=23f3002267@ds.study.iitm.ac.in id=f01c73c5-9949-49f8-9f4f-4347ccfff073
+2026-04-13 17:31:28 | INFO     | auth | Magic link sent successfully to 23f3002267@ds.study.iitm.ac.in
+2026-04-13 17:31:40 | INFO     | auth | User logged in: username=naman id=f01c73c5-9949-49f8-9f4f-4347ccfff073

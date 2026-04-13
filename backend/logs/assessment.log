@@ -1,0 +1,4 @@
+2026-04-13 17:32:53 | INFO     | assessment | Generating assessment | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | track=mental_health | chat_msgs=0
+2026-04-13 17:33:03 | INFO     | assessment | Generating assessment | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | track=mental_health | chat_msgs=0
+2026-04-13 17:34:49 | INFO     | assessment | Generating assessment | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | track=mental_health | chat_msgs=0
+2026-04-13 17:36:24 | INFO     | assessment | Assessment submitted | user=f01c73c5-9949-49f8-9f4f-4347ccfff073 | track=mental_health | risk=medium | score=0.3554
