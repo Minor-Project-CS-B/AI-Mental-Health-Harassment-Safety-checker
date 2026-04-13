@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends
+#assessment.py
+
+from fastapi import APIRouter, Depends, HTTPException
 from database.connection import get_database
 from models.schemas import (
-    AssessmentSubmission, AssessmentResult, TrackType, TokenData
+    DynamicAssessmentSubmission, AssessmentResult,
+    TrackType, TokenData, DynamicAssessmentSession,
 )
 from utils.security import get_current_user
 from engine.classifier import run_classification
 from engine.response_generator import generate_response
+from services.assessment_service import generate_dynamic_questions
 from logger import get_assessment_logger
 from datetime import datetime
 import uuid
@@ -13,128 +17,141 @@ import uuid
 router = APIRouter(prefix="/assessment", tags=["Assessment"])
 logger = get_assessment_logger()
 
-# ── Question Banks ─────────────────────────────────────────────────────────────
 
-MENTAL_HEALTH_QUESTIONS = [
-    {"id": "mh1",  "text": "How often have you felt hopeless or helpless in the past 2 weeks?",
-     "options": ["Never", "Rarely", "Sometimes", "Often", "Always"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","🙂","😐","😟","😢"]},
-    {"id": "mh2",  "text": "How would you describe your energy levels lately?",
-     "options": ["Very high", "Moderate", "Low", "Very low", "Completely drained"], "scores": [0,1,2,3,4],
-     "emoji": ["⚡","🙂","😐","😔","😩"]},
-    {"id": "mh3",  "text": "How often do you feel anxious or worried without a clear reason?",
-     "options": ["Never", "Rarely", "Sometimes", "Often", "Almost always"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","🙂","😐","😰","😱"]},
-    {"id": "mh4",  "text": "How well have you been sleeping recently?",
-     "options": ["Very well", "Mostly fine", "Disturbed", "Poorly", "Hardly at all"], "scores": [0,1,2,3,4],
-     "emoji": ["😴","🙂","😐","😔","😩"]},
-    {"id": "mh5",  "text": "Have you lost interest in activities you used to enjoy?",
-     "options": ["Not at all", "Slightly", "Moderately", "Mostly", "Completely"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","🙂","😐","😟","😢"]},
-    {"id": "mh6",  "text": "How often do you feel overwhelmed by everyday tasks?",
-     "options": ["Never", "Rarely", "Sometimes", "Often", "Always"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","🙂","😐","😟","😩"]},
-    {"id": "mh7",  "text": "How well are you able to concentrate on work or studies?",
-     "options": ["Very well", "Mostly fine", "Somewhat difficult", "Very difficult", "Cannot focus at all"],
-     "scores": [0,1,2,3,4], "emoji": ["🧠","🙂","😐","😟","😩"]},
-    {"id": "mh8",  "text": "Do you feel connected to and supported by people around you?",
-     "options": ["Very connected", "Mostly yes", "Somewhat", "Not really", "Completely isolated"],
-     "scores": [0,1,2,3,4], "emoji": ["🤗","🙂","😐","😔","😞"]},
-    {"id": "mh9",  "text": "How often have you had thoughts of harming yourself?",
-     "options": ["Never", "A fleeting thought", "Occasionally", "Often", "Very frequently"],
-     "scores": [0,1,2,3,4], "emoji": ["😊","🙂","😐","😟","🚨"]},
-    {"id": "mh10", "text": "Overall, how would you rate your mental health right now?",
-     "options": ["Excellent", "Good", "Fair", "Poor", "Very poor"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","🙂","😐","😔","😢"]},
-]
+# ── Generate dynamic questions (AI + RAG + chat history) ──────────────────────
 
-HARASSMENT_QUESTIONS = [
-    {"id": "hr1",  "text": "Have you experienced verbal abuse, insults, or humiliation recently?",
-     "options": ["Never", "Once", "Sometimes", "Regularly", "Very frequently"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","😐","😟","😠","😡"]},
-    {"id": "hr2",  "text": "Have you received threatening or abusive messages online?",
-     "options": ["Never", "Once", "A few times", "Often", "Constantly"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","😐","😟","😨","🚨"]},
-    {"id": "hr3",  "text": "Have you felt physically unsafe or threatened by someone?",
-     "options": ["Never", "Once", "Sometimes", "Often", "Always"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","😐","😟","😨","😱"]},
-    {"id": "hr4",  "text": "Has anyone shared private information or images of you without consent?",
-     "options": ["No", "I'm not sure", "Yes, once", "Yes, multiple times", "Yes, it's ongoing"],
-     "scores": [0,1,2,3,4], "emoji": ["😊","😐","😟","😠","🚨"]},
-    {"id": "hr5",  "text": "Have you been followed, watched, or stalked (online or offline)?",
-     "options": ["Never", "I'm unsure", "Once", "Sometimes", "Frequently"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","😐","😟","😨","😱"]},
-    {"id": "hr6",  "text": "Have you been discriminated against or treated unfairly at your institution?",
-     "options": ["Never", "Rarely", "Sometimes", "Often", "Very frequently"], "scores": [0,1,2,3,4],
-     "emoji": ["😊","🙂","😐","😟","😠"]},
-    {"id": "hr7",  "text": "Do you feel you can report harassment to someone in authority?",
-     "options": ["Yes, easily", "Probably yes", "Unsure", "Probably not", "Definitely not"],
-     "scores": [0,1,2,3,4], "emoji": ["😊","🙂","😐","😟","😔"]},
-    {"id": "hr8",  "text": "Has the harassment affected your daily routine or sense of safety?",
-     "options": ["Not at all", "Slightly", "Moderately", "Significantly", "Completely"],
-     "scores": [0,1,2,3,4], "emoji": ["😊","🙂","😐","😟","😢"]},
-    {"id": "hr9",  "text": "Have you lost sleep or experienced anxiety because of the situation?",
-     "options": ["Never", "Rarely", "Sometimes", "Often", "Always"], "scores": [0,1,2,3,4],
-     "emoji": ["😴","🙂","😐","😰","😱"]},
-    {"id": "hr10", "text": "Do you currently feel safe where you are right now?",
-     "options": ["Yes, completely safe", "Mostly safe", "Somewhat unsafe", "Quite unsafe", "Not safe at all"],
-     "scores": [0,1,2,3,4], "emoji": ["😊","🙂","😐","😟","🚨"]},
-]
-
-
-@router.get("/questions/{track}")
-async def get_questions(
+@router.get("/generate/{track}", response_model=DynamicAssessmentSession)
+async def generate_assessment(
     track: TrackType,
     current_user: TokenData = Depends(get_current_user),
 ):
-    questions = (
-        MENTAL_HEALTH_QUESTIONS if track == TrackType.mental_health else HARASSMENT_QUESTIONS
-    )
-    return {"track": track, "questions": questions}
+    """
+    Generates a FRESH set of 10 AI + RAG personalized questions every time.
 
+    Steps:
+    1. Fetch user profile + current risk level
+    2. Fetch recent chat history (last 20 messages)
+    3. Pass both to GPT with RAG question bank as context
+    4. Return 10 unique, personalized questions with options/scores/emojis
+    """
+    db   = get_database()
+    user = await db["users"].find_one({"_id": current_user.user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Fetch recent chat history for RAG context
+    chat_messages = await db["chat_messages"].find(
+        {"user_id": current_user.user_id, "role": "user"},
+        {"_id": 0, "role": 1, "content": 1, "timestamp": 1},
+    ).sort("timestamp", -1).limit(20).to_list(length=20)
+    chat_messages.reverse()
+
+    logger.info(
+        f"Generating assessment | user={current_user.user_id} | "
+        f"track={track.value} | chat_msgs={len(chat_messages)}"
+    )
+
+    result = await generate_dynamic_questions(
+        track=track.value,
+        chat_messages=chat_messages,
+        user_name=user["name"],
+        user_risk_level=user.get("current_risk_level", "low"),
+    )
+
+    # Store the generated session so we can validate on submit
+    await db["assessment_sessions"].insert_one({
+        "_id":           result["session_id"],
+        "user_id":       current_user.user_id,
+        "track":         track.value,
+        "questions":     result["questions"],
+        "based_on_chat": result["based_on_chat"],
+        "generated_at":  datetime.utcnow(),
+        "submitted":     False,
+    })
+
+    return DynamicAssessmentSession(
+        session_id=result["session_id"],
+        track=track.value,
+        questions=result["questions"],
+        based_on_chat=result["based_on_chat"],
+    )
+
+
+# ── Submit answers → local ML analysis → risk result ──────────────────────────
 
 @router.post("/submit", response_model=AssessmentResult)
 async def submit_assessment(
-    payload: AssessmentSubmission,
+    payload: DynamicAssessmentSubmission,
     current_user: TokenData = Depends(get_current_user),
 ):
     """
-    Run local ML analysis on assessment answers.
-    Updates the user's risk level and stores the result.
+    Accepts answers for a dynamic assessment session.
+    Runs local ML pipeline (VADER + keywords + questionnaire score).
+    Updates user risk level with blended score.
     """
     db = get_database()
 
+    # Validate session belongs to this user
+    session = await db["assessment_sessions"].find_one({
+        "_id":     payload.session_id,
+        "user_id": current_user.user_id,
+    })
+    if not session:
+        raise HTTPException(status_code=404, detail="Assessment session not found.")
+    if session.get("submitted"):
+        raise HTTPException(status_code=400, detail="This assessment has already been submitted.")
+
+    # Build combined text from answers for NLP analysis
+    combined_text = " ".join([a.answer for a in payload.answers if a.answer])
+
+    # Run local ML classification
     risk_level, risk_score, sentiment, kw_matches = run_classification(
         track=payload.track,
         answers=payload.answers,
+        free_text=combined_text,
     )
 
     response_data  = generate_response(risk_level=risk_level, track=payload.track)
     assessment_id  = str(uuid.uuid4())
 
-    logger.info(f"Assessment submitted | user={current_user.user_id} | track={payload.track.value} | risk={risk_level.value} | score={risk_score}")
+    logger.info(
+        f"Assessment submitted | user={current_user.user_id} | "
+        f"track={payload.track.value} | risk={risk_level.value} | score={risk_score}"
+    )
+
+    # Mark session as submitted
+    await db["assessment_sessions"].update_one(
+        {"_id": payload.session_id},
+        {"$set": {"submitted": True, "submitted_at": datetime.utcnow()}}
+    )
 
     # Store result
     await db["assessment_results"].insert_one({
         "_id":             assessment_id,
         "user_id":         current_user.user_id,
+        "session_id":      payload.session_id,
         "track":           payload.track.value,
         "risk_level":      risk_level.value,
         "risk_score":      risk_score,
         "sentiment_label": sentiment.label,
         "keyword_count":   len(kw_matches),
         "keyword_cats":    list({m.category for m in kw_matches}),
+        "based_on_chat":   session.get("based_on_chat", False),
         "analyzed_at":     datetime.utcnow(),
     })
 
-    # Update user risk level (weighted: 60% latest assessment, 40% existing)
-    user = await db["users"].find_one({"_id": current_user.user_id})
-    old_score   = user.get("risk_score", 0.0) if user else 0.0
-    blended     = round(0.6 * risk_score + 0.4 * old_score, 4)
+    # Blend with existing risk score (60% new, 40% old)
+    user      = await db["users"].find_one({"_id": current_user.user_id})
+    old_score = user.get("risk_score", 0.0) if user else 0.0
+    blended   = round(0.6 * risk_score + 0.4 * old_score, 4)
 
     await db["users"].update_one(
         {"_id": current_user.user_id},
-        {"$set": {"risk_score": blended, "current_risk_level": risk_level.value, "last_active": datetime.utcnow()}},
+        {"$set": {
+            "risk_score":          blended,
+            "current_risk_level":  risk_level.value,
+            "last_active":         datetime.utcnow(),
+        }},
     )
 
     return AssessmentResult(
@@ -148,3 +165,25 @@ async def submit_assessment(
         resources=response_data["resources"],
         support_message=response_data["support_message"],
     )
+
+
+# ── History ────────────────────────────────────────────────────────────────────
+
+@router.get("/history")
+async def get_assessment_history(
+    limit: int = 10,
+    current_user: TokenData = Depends(get_current_user),
+):
+    """Returns past assessment results for the current user."""
+    db = get_database()
+
+    results = await db["assessment_results"].find(
+        {"user_id": current_user.user_id},
+        {"_id": 1, "track": 1, "risk_level": 1, "risk_score": 1,
+         "sentiment_label": 1, "based_on_chat": 1, "analyzed_at": 1},
+    ).sort("analyzed_at", -1).limit(limit).to_list(length=limit)
+
+    for r in results:
+        r["assessment_id"] = str(r.pop("_id"))
+
+    return {"history": results, "count": len(results)}

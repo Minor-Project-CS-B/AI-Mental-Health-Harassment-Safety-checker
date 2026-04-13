@@ -1,3 +1,6 @@
+#connection.py
+
+
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic_settings import BaseSettings
 from functools import lru_cache
@@ -21,6 +24,7 @@ class Settings(BaseSettings):
     app_name: str = os.getenv("APP_NAME")
 
     openai_api_key: str = os.getenv("OPENAI_API_KEY")
+    gemini_api_key: str = os.getenv("google_api_key")
 
     model_config = {"env_file": ".env", "extra": "ignore"}
     

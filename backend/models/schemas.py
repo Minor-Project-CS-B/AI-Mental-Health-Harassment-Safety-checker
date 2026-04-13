@@ -1,3 +1,5 @@
+#schemas.py
+
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Any
 from enum import Enum
@@ -25,6 +27,9 @@ class MessageRole(str, Enum):
 
 
 class ChatInputType(str, Enum):
+    image  = "image"
+    video  = "video"
+    audio  = "audio"
     text  = "text"
     voice = "voice"
     mcq   = "mcq"
@@ -194,3 +199,57 @@ class DashboardData(BaseModel):
     last_active:         datetime
     recent_assessments:  List[dict] = []
     risk_history:        List[dict] = []    # Last 7 risk scores over time
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Evidence Media
+# ══════════════════════════════════════════════════════════════════════════════
+
+class EvidenceAnalysisResult(BaseModel):
+    evidence_id:       str
+    file_type:         str                    # image / video / audio
+    original_filename: str
+    ai_analysis:       str                    # What AI found in the media
+    risk_indicators:   List[str]              # Specific risk signals detected
+    suggested_actions: List[str]              # What user should do with this evidence
+    is_harassment_evidence: bool = False      # AI determined this is harassment evidence
+    confidence:        str = "medium"         # low / medium / high
+    saved_at:          datetime = Field(default_factory=datetime.utcnow)
+    disclaimer: str = (
+        "This AI analysis is not a legal determination. "
+        "Always consult a professional before taking action."
+    )
+
+
+class VoiceTranscriptionResult(BaseModel):
+    transcription: str
+    language:      str = "en"
+    confidence:    str = "high"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Dynamic Assessment (AI + RAG generated questions)
+# ══════════════════════════════════════════════════════════════════════════════
+ 
+class DynamicQuestion(BaseModel):
+    id:       str
+    text:     str
+    options:  List[str]
+    scores:   List[int]
+    emoji:    List[str]
+    category: str            # what aspect this question probes
+    why:      str            # why AI generated this question (for explainability)
+ 
+ 
+class DynamicAssessmentSession(BaseModel):
+    session_id:   str
+    track:        str
+    questions:    List[DynamicQuestion]
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    based_on_chat: bool = False    # whether chat history was used
+ 
+ 
+class DynamicAssessmentSubmission(BaseModel):
+    session_id: str
+    track:      TrackType
+    answers:    List[AssessmentAnswer]

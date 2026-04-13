@@ -22,9 +22,9 @@ def sentiment_to_distress(sentiment: SentimentResult) -> float:
 
 
 def classify_risk(score: float) -> RiskLevel:
-    if score >= 0.65:
+    if score >= 0.45:
         return RiskLevel.high
-    elif score >= 0.35:
+    elif score >= 0.15:
         return RiskLevel.medium
     return RiskLevel.low
 

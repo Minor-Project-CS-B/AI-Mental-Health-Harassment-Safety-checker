@@ -1,3 +1,5 @@
+#main.py
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
@@ -107,6 +109,9 @@ async def root():
         "disclaimer": "This tool provides AI-based support suggestions and is not a substitute for professional medical or legal advice.",
         "docs":       "http://127.0.0.1:8000/docs",
     }
+
+    
+print(settings.gemini_api_key)
 
 @app.get("/health", tags=["Health"])
 async def health():

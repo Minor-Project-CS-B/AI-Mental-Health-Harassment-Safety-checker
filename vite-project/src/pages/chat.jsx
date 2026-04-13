@@ -1,94 +1,89 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, Mic, Send, Image as ImageIcon, Video, 
-  MoreHorizontal, X, Loader2, User, Bot 
-} from 'lucide-react';
-import { 
-  sendMessage, startChat, 
-  uploadImageEvidence, voiceToText 
+import { Plus, Mic, Send, Image as ImageIcon, Video, Loader2, User, Bot } from 'lucide-react';
+import {
+  sendMessage, startChat, getChatHistory,
+  uploadImageEvidence, uploadVideoEvidence, voiceToText
 } from '../services/api';
 import Navbar from '../components/Navbar';
 
 export default function Chat() {
-  // --- LOGIC STATES ---
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [mcqOpts, setMcq] = useState(null);
-  const [emojiOpts, setEmoji] = useState(null);
+  const [messages, setMessages]   = useState([]);
+  const [input, setInput]         = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [mcqOpts, setMcq]         = useState(null);
+  const [emojiOpts, setEmoji]     = useState(null);
   const [recording, setRecording] = useState(false);
-  const [mediaRec, setMediaRec] = useState(null);
+  const [mediaRec, setMediaRec]   = useState(null);
   const [uploadMsg, setUploadMsg] = useState(null);
-  const [showMenu, setShowMenu] = useState(false);
+  const [showMenu, setShowMenu]   = useState(false);
 
-  const bottomRef = useRef(null);
-  const imageRef = useRef(null);
-  const videoRef = useRef(null);
+  const bottomRef   = useRef(null);
+  const imageRef    = useRef(null);
+  const videoRef    = useRef(null);
   const audioChunks = useRef([]);
 
-  // --- INITIALIZATION ---
-  // useEffect(() => {
-  //   getChatHistory().then(r => {
-  //     if (r.data.messages.length > 0) {
-  //       setMessages(r.data.messages.map(m => ({ 
-  //         role: m.role, content: m.content, type: m.input_type 
-  //       })));
-  //     } else {
-  //       startChat().then(r => setMessages([{ role: 'assistant', content: r.data.content }]));
-  //     }
-  //   });
-  // }, []);
+  // Load history or show opening message
+  useEffect(() => {
+    getChatHistory().then(r => {
+      if (r.data.messages.length > 0) {
+        setMessages(r.data.messages.map(m => ({
+          role: m.role, content: m.content, type: m.input_type
+        })));
+      } else {
+        startChat().then(r => setMessages([{ role: 'assistant', content: r.data.content }]));
+      }
+    }).catch(() => {
+      startChat().then(r => setMessages([{ role: 'assistant', content: r.data.content }]));
+    });
+  }, []);
 
-  // useEffect(() => {
-  //   bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  // }, [messages, loading]);
+  // Auto scroll to bottom
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
-  // --- CORE SEND LOGIC ---
+  // ── Send text / MCQ / emoji ────────────────────────────────────────────────
   const send = async (text, inputType = 'text') => {
     if (!text.trim() || loading) return;
     setMessages(m => [...m, { role: 'user', content: text, type: inputType }]);
     setInput(''); setMcq(null); setEmoji(null); setLoading(true); setShowMenu(false);
-    
     try {
       const r = await sendMessage({ message: text, input_type: inputType, tag_evidence: false });
       setMessages(m => [...m, { role: 'assistant', content: r.data.reply }]);
-      if (r.data.mcq_options?.length) setMcq(r.data.mcq_options);
+      if (r.data.mcq_options?.length)  setMcq(r.data.mcq_options);
       if (r.data.emoji_options?.length) setEmoji(r.data.emoji_options);
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: 'Sorry, I hit a snag. Please try again.' }]);
     } finally { setLoading(false); }
   };
 
-  // --- UPLOAD HANDLERS ---
+  // ── Image / Video upload ───────────────────────────────────────────────────
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
-    setLoading(true);
-    setShowMenu(false);
+    setLoading(true); setShowMenu(false);
     setUploadMsg(type === 'image' ? 'Analyzing image...' : 'Processing video...');
-    
     const form = new FormData();
     form.append('file', file);
     form.append('context', '');
-
     try {
       const apiCall = type === 'image' ? uploadImageEvidence : uploadVideoEvidence;
       const r = await apiCall(form);
       const d = r.data;
       setMessages(m => [...m,
-        { role: 'user', content: `[${type.toUpperCase()} Evidence: ${file.name}]`, type },
-        { role: 'assistant', content: `${d.ai_analysis}\n\n${d.suggested_actions?.join('\n') || ''}` }
+        { role: 'user',      content: `[${type.toUpperCase()} Evidence: ${file.name}]`, type },
+        { role: 'assistant', content: `${d.ai_analysis}\n\n${d.suggested_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || ''}` }
       ]);
     } catch {
-      setMessages(m => [...m, { role: 'assistant', content: `Could not process ${type}.` }]);
+      setMessages(m => [...m, { role: 'assistant', content: `Could not process ${type}. Please try again.` }]);
     } finally { setLoading(false); setUploadMsg(null); e.target.value = ''; }
   };
 
-  // --- VOICE LOGIC ---
+  // ── Voice recording ────────────────────────────────────────────────────────
   const toggleRecording = async () => {
     if (recording) {
-      mediaRec.stop();
+      mediaRec?.stop();
       setRecording(false);
       return;
     }
@@ -102,15 +97,25 @@ export default function Chat() {
         const form = new FormData();
         form.append('file', blob, 'recording.webm');
         setLoading(true);
+        setUploadMsg('Transcribing your voice...');
         try {
           const r = await voiceToText(form);
-          if (r.data.transcription) setInput(r.data.transcription);
-        } finally { setLoading(false); stream.getTracks().forEach(t => t.stop()); }
+          if (r.data.transcription) {
+            setInput(r.data.transcription);
+            setUploadMsg(null);
+          }
+        } catch {
+          setUploadMsg('Could not transcribe. Please type instead.');
+          setTimeout(() => setUploadMsg(null), 3000);
+        } finally {
+          setLoading(false);
+          stream.getTracks().forEach(t => t.stop());
+        }
       };
       mr.start();
       setMediaRec(mr);
       setRecording(true);
-    } catch { alert('Mic access denied'); }
+    } catch { alert('Microphone access denied. Please allow mic access in your browser settings.'); }
   };
 
   return (
@@ -130,17 +135,23 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 bg-white rounded-[2.5rem] shadow-sm p-6 overflow-y-auto mb-6 border border-slate-100 space-y-6 scrollbar-hide">
+        {/* Messages */}
+        <div className="flex-1 bg-white rounded-[2.5rem] shadow-sm p-6 overflow-y-auto mb-6 border border-slate-100 space-y-6">
+          {messages.length === 0 && !loading && (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-slate-400 text-sm font-medium">Starting conversation...</p>
+            </div>
+          )}
+
           {messages.map((m, i) => (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div className={`max-w-[80%] p-4 rounded-[1.8rem] text-sm leading-relaxed shadow-sm ${
-                m.role === 'user' 
-                ? 'bg-indigo-600 text-white rounded-tr-none' 
-                : 'bg-slate-50 text-slate-700 border border-slate-100 rounded-tl-none'
+              <div className={`max-w-[80%] p-4 rounded-[1.8rem] text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
+                m.role === 'user'
+                  ? 'bg-indigo-600 text-white rounded-tr-none'
+                  : 'bg-slate-50 text-slate-700 border border-slate-100 rounded-tl-none'
               }`}>
                 {m.type && m.type !== 'text' && (
                   <span className="block text-[10px] uppercase font-black mb-1 opacity-60 tracking-widest">{m.type}</span>
@@ -149,10 +160,11 @@ export default function Chat() {
               </div>
             </motion.div>
           ))}
+
           {loading && (
             <div className="flex justify-start">
               <div className="bg-slate-50 p-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 flex items-center gap-3">
-                <Loader2 className="animate-spin text-indigo-600" size={18} />
+                <Loader2 className="animate-spin text-indigo-600" size={18}/>
                 <span className="text-sm text-slate-500 font-medium">{uploadMsg || 'Thinking...'}</span>
               </div>
             </div>
@@ -163,37 +175,36 @@ export default function Chat() {
             {(mcqOpts || emojiOpts) && !loading && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-2 py-2">
                 {(mcqOpts || emojiOpts).map((opt, i) => (
-                  <button 
+                  <button
                     key={i} onClick={() => send(opt, mcqOpts ? 'mcq' : 'emoji')}
                     className="bg-white border-2 border-slate-100 hover:border-indigo-600 hover:text-indigo-600 text-slate-600 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm"
-                  >
-                    {opt}
-                  </button>
+                  >{opt}</button>
                 ))}
               </motion.div>
             )}
           </AnimatePresence>
-          <div ref={bottomRef} />
+
+          <div ref={bottomRef}/>
         </div>
 
-        {/* Input Bar Section */}
+        {/* Input Area */}
         <div className="relative">
-          {/* Floating Menu */}
+          {/* Floating upload menu */}
           <AnimatePresence>
             {showMenu && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: -10 }} exit={{ opacity: 0, y: 20 }}
                 className="absolute bottom-full left-0 mb-4 bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-3 flex gap-3 z-50"
               >
                 {[
-                  { icon: <ImageIcon size={20}/>, label: "Image", color: "bg-emerald-500", ref: imageRef, type: 'image' },
-                  { icon: <Video size={20}/>, label: "Video", color: "bg-rose-500", ref: videoRef, type: 'video' },
+                  { icon: <ImageIcon size={20}/>, label: 'Image', color: 'bg-emerald-500', ref: imageRef, type: 'image' },
+                  { icon: <Video size={20}/>,     label: 'Video', color: 'bg-rose-500',    ref: videoRef, type: 'video' },
                 ].map((item, i) => (
-                  <button 
+                  <button
                     key={i} onClick={() => item.ref.current.click()}
                     className="flex flex-col items-center gap-1.5 p-3 hover:bg-slate-50 rounded-2xl transition-all"
                   >
-                    <div className={`${item.color} text-white p-3 rounded-2xl shadow-lg shadow-inherit/20`}>{item.icon}</div>
+                    <div className={`${item.color} text-white p-3 rounded-2xl`}>{item.icon}</div>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{item.label}</span>
                   </button>
                 ))}
@@ -201,39 +212,41 @@ export default function Chat() {
             )}
           </AnimatePresence>
 
-          {/* Hidden File Inputs */}
-          <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'image')} />
-          <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'video')} />
+          {/* Hidden file inputs */}
+          <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'image')}/>
+          <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'video')}/>
 
-          {/* Main Input Bar */}
+          {/* Main input bar */}
           <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-2 flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setShowMenu(!showMenu)}
               className={`p-4 rounded-full transition-all ${showMenu ? 'bg-slate-900 text-white rotate-45' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
             >
-              <Plus size={22} />
+              <Plus size={22}/>
             </button>
 
-            <input 
-              type="text" value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && send(input)}
-              placeholder={recording ? "Listening..." : "Describe the situation..."}
+            <input
+              type="text" value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send(input)}
+              placeholder={recording ? 'Listening... click mic to stop' : 'Describe the situation...'}
               className="flex-1 py-3 bg-transparent outline-none text-slate-700 placeholder:text-slate-400 font-medium"
             />
 
             <div className="flex items-center gap-1 pr-1">
-              <button 
+              <button
                 onClick={toggleRecording}
                 className={`p-4 rounded-full transition-all ${recording ? 'bg-rose-500 text-white animate-pulse' : 'text-slate-400 hover:bg-slate-100'}`}
+                title={recording ? 'Stop recording' : 'Start voice recording'}
               >
-                <Mic size={20} />
+                <Mic size={20}/>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => send(input)} disabled={!input.trim() || loading}
-                className={`p-4 rounded-full transition-all ${input.trim() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-50 text-slate-300'}`}
+                className={`p-4 rounded-full transition-all ${input.trim() && !loading ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-50 text-slate-300'}`}
               >
-                <Send size={20} />
+                <Send size={20}/>
               </button>
             </div>
           </div>
