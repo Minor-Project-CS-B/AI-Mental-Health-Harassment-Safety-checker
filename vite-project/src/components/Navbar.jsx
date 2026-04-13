@@ -1,35 +1,21 @@
-// import "./Navbar.css";
-// function Navbar() {
-//   return (
-//     <nav className="navbar">
-//       <h2 className="logo">MindSafe AI</h2>
-
-//       <div className="nav-links">
-//         <a href="/" className="nav-link">Home </a>
-//         <a href="/questions" className="nav-link"> StartQuestionaires </a>
-//         <a href="/dashboard" className="nav-link"> DashBoard </a>
-//         <a href="/result" className="nav-link">  Result </a>
-//         <a href="/privacy" className="nav-link">  Privacy </a>
-//       </div>
-//     </nav>
-//   );
-// }
-// s
-// export default Navbar;
-
-
 import React, { useState } from 'react';
-import logo from '../assets/logo minor.jpg'; 
+import logo from '../assets/logo minor.jpg';
+
+
 
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
 
+
   // Function to quickly redirect to a neutral site for safety
   const handleQuickExit = () => {
-    
+   
     window.location.href = "http://localhost:5173/";
   };
+
+
+
 
 
 
@@ -37,14 +23,14 @@ const Navbar = () => {
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          
+         
           {/* Updated Logo Section */}
           <div className="flex-shrink-0 flex items-center">
             <a href="/" className="flex items-center">
-              <img 
-                src={logo} 
-                alt="AIMHHC logo" 
-                className="h-10 w-auto mr-3 rounded-lg" 
+              <img
+                src={logo}
+                alt="AIMHHC logo"
+                className="h-10 w-auto mr-3 rounded-lg"
               />
               <span className="font-bold text-xl text-gray-800 tracking-tight">
                 AI<span className="text-blue-600">MH</span>HC
@@ -52,12 +38,18 @@ const Navbar = () => {
             </a>
           </div>
 
+
           {/* Desktop Links ... Rest of your code */}
 
 
 
 
-          
+
+
+
+
+         
+
 
           {/* Desktop Links */}
           <div className="hidden md:flex space-x-8 items-center">
@@ -66,9 +58,9 @@ const Navbar = () => {
             <a href="/assessment" className="text-gray-600 hover:text-blue-600 font-medium transition">Assessment</a>
             <a href="/dashboard" className="text-gray-600 hover:text-blue-600 font-medium transition">DashBoard</a>
             <a href="/help" className="text-gray-600 hover:text-blue-600 font-medium transition">Help And Support</a>
-            
+           
             {/* Quick Exit Button (Desktop) */}
-            <button 
+            <button
               onClick={handleQuickExit}
               className="bg-red-50 text-red-600 px-4 py-2 rounded-full text-sm font-bold border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"
             >
@@ -76,9 +68,10 @@ const Navbar = () => {
             </button>
           </div>
 
+
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center">
-            <button 
+            <button
               onClick={() => setIsOpen(!isOpen)}
               className="text-gray-600 hover:text-gray-900 focus:outline-none"
             >
@@ -94,14 +87,16 @@ const Navbar = () => {
         </div>
       </div>
 
+
       {/* Mobile Menu Content */}
       {isOpen && (
         <div className="md:hidden bg-white border-t border-gray-50 pb-4 px-4 space-y-2">
-          <a href="#" className="block py-3 text-gray-600 font-medium">Home</a>
-          <a href="#" className="block py-3 text-gray-600 font-medium">Assessment</a>
-          <a href="#" className="block py-3 text-gray-600 font-medium">Safety Tips</a>
-          <a href="#" className="block py-3 text-gray-600 font-medium text-red-600 font-bold" onClick={handleQuickExit}>
-            QUICK EXIT
+          <a href="/dashboard" className="block py-3 text-gray-600 font-medium">Dashboard</a>
+          <a href="/assessment" className="block py-3 text-gray-600 font-medium">Assessment</a>
+          <a href="/chat" className="block py-3 text-gray-600 font-medium">AI Chat</a>
+          <a href="/help" className="block py-3 text-gray-600 font-medium">Help And Support</a>
+          <a href="/" className="block py-3 text-gray-600 font-medium text-red-600 font-bold" onClick={handleQuickExit}>
+            Logout
           </a>
         </div>
       )}
@@ -109,6 +104,11 @@ const Navbar = () => {
   );
 };
 
+
 export default Navbar;
 ;;;
+
+
+
+
 

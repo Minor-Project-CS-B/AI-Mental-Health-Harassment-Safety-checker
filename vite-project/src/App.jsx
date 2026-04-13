@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Home .jsx";
-import Login from "./pages/login.jsx";
+import Login from "./pages/Login.jsx";
 import Register from "./pages/register.jsx";
 import Onboarding from "./pages/onboarding.jsx";
 import Dashboard from "./pages/dashboard";

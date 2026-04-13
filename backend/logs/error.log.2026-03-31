@@ -1,0 +1,90 @@
+2026-03-31 15:59:23 | ERROR    | uvicorn.error | Traceback (most recent call last):
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\starlette\routing.py", line 732, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\shivi\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\main.py", line 18, in lifespan
+    await connect_db()
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\database\connection.py", line 46, in connect_db
+    await database["users"].create_index("email", unique=True)
+  File "C:\Users\shivi\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\collection.py", line 2120, in create_index
+    return self.__create_indexes([index], session, **cmd_options)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\_csot.py", line 108, in csot_wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\collection.py", line 1973, in __create_indexes
+    with self._conn_for_writes(session, operation=_Op.CREATE_INDEXES) as conn:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\collection.py", line 258, in _conn_for_writes
+    return self.__database.client._conn_for_writes(session, operation)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\mongo_client.py", line 1333, in _conn_for_writes
+    server = self._select_server(writable_server_selector, session, operation)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\mongo_client.py", line 1316, in _select_server
+    server = topology.select_server(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 369, in select_server
+    server = self._select_server(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 347, in _select_server
+    servers = self.select_servers(
+              ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 254, in select_servers
+    server_descriptions = self._select_servers_loop(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 304, in _select_servers_loop
+    raise ServerSelectionTimeoutError(
+pymongo.errors.ServerSelectionTimeoutError: localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 30s, Topology Description: <TopologyDescription id: 69cba1e55c435494ab6683a6, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+
+2026-03-31 15:59:23 | ERROR    | uvicorn.error | Application startup failed. Exiting.
+2026-03-31 16:04:28 | ERROR    | uvicorn.error | Traceback (most recent call last):
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\starlette\routing.py", line 732, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\shivi\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\main.py", line 18, in lifespan
+    await connect_db()
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\database\connection.py", line 46, in connect_db
+    await database["users"].create_index("email", unique=True)
+  File "C:\Users\shivi\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\collection.py", line 2120, in create_index
+    return self.__create_indexes([index], session, **cmd_options)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\_csot.py", line 108, in csot_wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\collection.py", line 1973, in __create_indexes
+    with self._conn_for_writes(session, operation=_Op.CREATE_INDEXES) as conn:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\collection.py", line 258, in _conn_for_writes
+    return self.__database.client._conn_for_writes(session, operation)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\mongo_client.py", line 1333, in _conn_for_writes
+    server = self._select_server(writable_server_selector, session, operation)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\mongo_client.py", line 1316, in _select_server
+    server = topology.select_server(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 369, in select_server
+    server = self._select_server(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 347, in _select_server
+    servers = self.select_servers(
+              ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 254, in select_servers
+    server_descriptions = self._select_servers_loop(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shivi\AI-Mental-Health-Harassment-Safety-checker\backend\venv\Lib\site-packages\pymongo\topology.py", line 304, in _select_servers_loop
+    raise ServerSelectionTimeoutError(
+pymongo.errors.ServerSelectionTimeoutError: localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 30s, Topology Description: <TopologyDescription id: 69cba3158f8bd185f1d624e2, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [WinError 10061] No connection could be made because the target machine actively refused it (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+
+2026-03-31 16:04:28 | ERROR    | uvicorn.error | Application startup failed. Exiting.
