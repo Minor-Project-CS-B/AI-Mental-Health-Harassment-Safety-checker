@@ -12,7 +12,7 @@ from utils.security import get_current_user
 from services.chat_service import (
     get_ai_reply, get_opening_message,
     analyze_evidence_image, analyze_evidence_video,
-    
+    transcribe_voice,  # ✅ FIX: yeh pehle missing tha
 )
 from engine.sentiment import analyze_sentiment
 from engine.keywords import detect_keywords, keyword_score
@@ -294,7 +294,6 @@ async def upload_video_evidence(
     )
 
 
-
 # ── History and evidence ───────────────────────────────────────────────────────
 
 @router.get("/history")
@@ -326,3 +325,48 @@ async def get_evidence(current_user: TokenData = Depends(get_current_user)):
         e["evidence_id"] = str(e.pop("_id"))
 
     return {"evidence": evidence, "count": len(evidence)}
+
+
+# ── Feature 4: Voice/mic to text ──────────────────────────────────────────────
+
+@router.post("/voice-to-text", response_model=VoiceTranscriptionResult)
+async def voice_to_text(
+    file: UploadFile = File(...),
+    current_user: TokenData = Depends(get_current_user),
+):
+    """
+    Upload a voice recording. Gemini transcribes it to text.
+    Accepts audio/webm, audio/webm;codecs=opus, and all common audio formats.
+    Frontend should send the transcription as a regular /chat/message.
+    """
+    # Normalize content type — browser sends "audio/webm;codecs=opus" etc.
+    raw_content_type  = file.content_type or ""
+    base_content_type = raw_content_type.split(";")[0].strip().lower()
+
+    if base_content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid audio format. Allowed: MP3, MP4, WAV, WebM, M4A, OGG. Got: {raw_content_type}"
+        )
+
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"File too large. Max size is {MAX_FILE_SIZE_MB}MB.")
+
+    logger.info(f"Voice transcription | user={current_user.user_id} | file={file.filename} | type={base_content_type}")
+
+    result = await transcribe_voice(
+        audio_bytes=contents,
+        filename=file.filename,
+        mime_type=base_content_type,
+    )
+
+    if not result.get("transcription"):
+        error_detail = result.get("error", "Could not transcribe audio.")
+        raise HTTPException(status_code=422, detail=f"Transcription failed: {error_detail}. Please try again or use text input.")
+
+    return VoiceTranscriptionResult(
+        transcription=result["transcription"],
+        language=result.get("language", "en"),
+        confidence=result.get("confidence", "high"),
+    )

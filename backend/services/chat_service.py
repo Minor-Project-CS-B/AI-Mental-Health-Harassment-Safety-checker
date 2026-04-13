@@ -210,5 +210,55 @@ async def analyze_evidence_video(
         }
 
 
+
+# ── Feature 4: Voice to text via Gemini ───────────────────────────────────────
+
+async def transcribe_voice(audio_bytes: bytes, filename: str, mime_type: str = "audio/webm") -> dict:
+    """
+    Transcribe voice using Gemini's multimodal audio capability.
+    Supports webm, mp3, wav, m4a, ogg, mp4 audio.
+    """
+    client = _get_client()
+
+    # Normalize mime type — browser often sends audio/webm;codecs=opus
+    clean_mime = mime_type.split(";")[0].strip() if mime_type else "audio/webm"
+
+    # Gemini supported audio types
+    supported = {
+        "audio/webm": "audio/webm",
+        "audio/mp4":  "audio/mp4",
+        "audio/mpeg": "audio/mpeg",
+        "audio/mp3":  "audio/mpeg",
+        "audio/wav":  "audio/wav",
+        "audio/ogg":  "audio/ogg",
+        "audio/x-m4a": "audio/mp4",
+        "audio/m4a":   "audio/mp4",
+    }
+    gemini_mime = supported.get(clean_mime, "audio/webm")
+
+    try:
+        audio_part = types.Part(
+            inline_data=types.Blob(mime_type=gemini_mime, data=audio_bytes)
+        )
+        text_part = types.Part(
+            text="Transcribe this audio recording exactly as spoken. Return only the transcribed text, nothing else."
+        )
+
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[types.Content(role="user", parts=[audio_part, text_part])],
+            config=types.GenerateContentConfig(max_output_tokens=500, temperature=0.1),
+        )
+
+        transcription = response.text.strip()
+        return {"transcription": transcription, "language": "en", "confidence": "high"}
+
+    except Exception as e:
+        return {"transcription": "", "language": "en", "confidence": "low", "error": str(e)}
+
 async def get_opening_message() -> str:
     return OPENING_MESSAGE
+
+
+
+
