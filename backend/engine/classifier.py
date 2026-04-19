@@ -51,3 +51,42 @@ def run_classification(
         final = max(final, 0.85)
 
     return classify_risk(final), final, sentiment, kw_matches
+
+# ── classify_input — wrapper for chat.py ──────────────────────────────────────
+# chat.py calls this with just the raw message text (no answers/track needed)
+
+def classify_input(text: str) -> dict:
+    """
+    Lightweight classifier for real-time chat messages.
+    Returns risk_score (0-1), categories detected, and severity.
+    Used by chat.py → get_risk_mode() → guardrails.
+    """
+    if not text or not text.strip():
+        return {"risk_score": 0.0, "categories": [], "severity": "none", "is_crisis": False}
+
+    sentiment  = analyze_sentiment(text)
+    kw_matches = detect_keywords(text)
+
+    s_score = sentiment_to_distress(sentiment)
+    k_score = keyword_score(kw_matches)
+
+    # Chat messages have no questionnaire — weighted blend of sentiment + keywords
+    final = round(min((0.4 * s_score) + (0.6 * k_score), 1.0), 4)
+
+    # Crisis override
+    is_crisis = any(m.category == "crisis" for m in kw_matches)
+    if is_crisis:
+        final = max(final, 0.85)
+
+    categories = list({m.category for m in kw_matches})
+    severity   = "none"
+    if kw_matches:
+        sev_order  = {"severe": 3, "moderate": 2, "mild": 1}
+        severity   = max(kw_matches, key=lambda m: sev_order.get(m.severity, 0)).severity
+
+    return {
+        "risk_score": final,
+        "categories": categories,
+        "severity":   severity,
+        "is_crisis":  is_crisis,
+    }

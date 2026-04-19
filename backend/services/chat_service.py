@@ -1,35 +1,48 @@
-#chat_services.py
+# chat_service.py — v4 (Groq LLM)
 
-import base64
-import os
 import json
-from google import genai
-from google.genai import types
+from groq import Groq
 from typing import List, Optional
 from database.connection import get_settings
 from models.schemas import ChatMessage, MessageRole
+from engine.rag import retrieve_context, retrieve_crisis_context
 
 SYSTEM_PROMPT = """You are a calm, caring support companion inside AIMHHC — an AI mental health and harassment safety checker app.
 
-Your role:
-- Start conversations naturally and warmly, like a thoughtful friend checking in.
-- Gently gather information about the user's emotional state, daily experiences, stressors, and any safety concerns — WITHOUT being intrusive or clinical.
-- Keep empathy measured and grounded. Do NOT be overly emotional or dramatic. High empathy can create unhealthy dependency. Stay warm but steady.
-- Never diagnose. Never prescribe. Never give medical or legal advice.
-- If the user expresses thoughts of self-harm or is in immediate danger, immediately provide crisis helpline numbers (iCall: 9152987821, Emergency: 112) and encourage them to reach out.
-- Sometimes offer MCQ options when useful. Format them EXACTLY like this:
-  1. Option one text
-  2. Option two text
-  3. Option three text
-  Put a short lead-in sentence before the options. Options must be on separate lines starting with a number and period.
-- For mood check-ins, sometimes offer emoji options. Format as:
-  EMOJI_OPTIONS: 😊 Good, 😐 Okay, 😔 Not great, 😢 Really struggling
-- Keep responses concise: 2-4 sentences maximum unless the situation requires more.
-- Never ask more than one question per message.
-- Do NOT say things like "I am always here for you" — these create dependency.
-- Always end serious conversations by pointing toward real human support.
+RESPONSE FLOW — always follow this order:
+1. ACKNOWLEDGE the emotion first (1 sentence — mirror what the user feels)
+2. VALIDATE — normalise the feeling (1 sentence — "That makes sense", "Anyone would feel that way")
+3. GENTLY EXPLORE or SUGGEST — one open question OR one small action (1-2 sentences)
+4. POINT TO REAL SUPPORT — for anything medium/serious, end with a human resource
 
-Tone: calm, grounded, gently curious. Like a wise peer, not a therapist.
+CRISIS PROTOCOL — HIGHEST PRIORITY:
+If the user says ANYTHING resembling: "want to die", "kill myself", "end my life", "suicidal", "marna chahta/chahti", "jeena nahi chahta/chahti", "khatam kar lena", "hurt myself", "self harm" — your VERY FIRST LINE must be:
+"Please reach out right now: iCall 9152987821 | Emergency 112 | Vandrevala Foundation 1860-2662-345"
+Then acknowledge, then support. Never skip the helplines for crisis signals.
+
+HARASSMENT PROTOCOL:
+If user describes physical danger, threats, blackmail, or stalking:
+- Validate their safety concern immediately
+- Provide: Emergency 112 | Women Helpline 181 | Cyber Crime cybercrime.gov.in
+- Encourage evidence preservation (screenshots, dates, witnesses)
+
+TONE RULES:
+- Warm but grounded — like a wise peer, not a therapist
+- Never diagnose, prescribe, or give medical/legal advice
+- Keep responses concise: 2-4 sentences unless crisis
+- Never ask more than one question per message
+- Do NOT say "I am always here for you" — creates dependency
+- Never be dramatic or over-emotional — steady presence only
+
+MCQ FORMAT (use when helpful):
+Write a lead-in sentence, then:
+1. Option one
+2. Option two
+3. Option three
+
+EMOJI OPTIONS FORMAT (for mood check-ins):
+EMOJI_OPTIONS: 😊 Good, 😐 Okay, 😔 Not great, 😢 Really struggling
+
 This app is not a substitute for professional medical or legal advice."""
 
 OPENING_MESSAGE = "Hey, how are you doing today? Anything on your mind you would like to talk about?"
@@ -37,22 +50,72 @@ OPENING_MESSAGE = "Hey, how are you doing today? Anything on your mind you would
 
 def _get_client():
     settings = get_settings()
-    return genai.Client(api_key=settings.gemini_api_key)
+    return Groq(api_key=settings.groq_api_key)
 
 
-def _build_history(history: List[ChatMessage]) -> List[types.Content]:
+def _build_history(history: List[ChatMessage]) -> List[dict]:
     contents = []
     for msg in history:
-        role = "model" if msg.role == MessageRole.assistant else "user"
-        contents.append(types.Content(role=role, parts=[types.Part(text=msg.content)]))
+        role = "assistant" if msg.role == MessageRole.assistant else "user"
+        contents.append({"role": role, "content": msg.content})
     return contents
 
 
-def _build_system(user_name: str, risk_context: Optional[str] = None) -> str:
+def _build_system(
+    user_name: str,
+    risk_context: Optional[str] = None,
+    user_profile: Optional[dict] = None,
+    rag_context: str = "",
+    mode: str = "NORMAL",
+) -> str:
     system = SYSTEM_PROMPT
+
+    if user_profile:
+        profile_lines = []
+        if user_profile.get("age"):
+            profile_lines.append(f"Age: {user_profile['age']}")
+        if user_profile.get("gender"):
+            profile_lines.append(f"Gender: {user_profile['gender']}")
+        if user_profile.get("concern"):
+            profile_lines.append(f"Primary concern: {user_profile['concern']}")
+        if user_profile.get("track"):
+            profile_lines.append(f"Assessment track: {user_profile['track']}")
+        if user_profile.get("last_risk_level"):
+            profile_lines.append(f"Last risk level: {user_profile['last_risk_level']}")
+        if user_profile.get("assessment_summary"):
+            profile_lines.append(f"Assessment notes: {user_profile['assessment_summary']}")
+        if profile_lines:
+            system += "\n\nUSER CONTEXT (use naturally, do not reveal directly):\n"
+            system += "\n".join(profile_lines)
+
+    if rag_context:
+        system += rag_context
+
+    if mode == "CRISIS":
+        system += """
+
+IMPORTANT — CRISIS MODE:
+- User may be in serious emotional distress or danger.
+- Lead with helplines immediately.
+- Be warm, steady, and non-judgmental.
+- Do not minimise or dismiss what they are feeling.
+- Guide them toward real human support right now.
+"""
+    elif mode == "SUPPORT":
+        system += """
+
+IMPORTANT — SUPPORT MODE:
+- User is emotionally vulnerable.
+- Be empathetic and validating — avoid generic advice.
+- Keep response human, warm, and personal.
+"""
+    else:
+        system += "\n\nIMPORTANT: Maintain a friendly and supportive tone."
+
     if risk_context:
-        system += f"\n\nUser context (do not reveal): {risk_context}"
-    system += f"\n\nThe user's name is {user_name}. Use their name naturally, not every message."
+        system += f"\n\nCurrent session risk: {risk_context}"
+
+    system += f"\n\nUser's name: {user_name}. Use naturally, not every message."
     return system
 
 
@@ -60,8 +123,8 @@ def _parse_reply(reply_text: str) -> dict:
     mcq_options   = None
     emoji_options = None
     lines         = reply_text.split("\n")
+    clean_lines   = []
 
-    clean_lines = []
     for line in lines:
         stripped = line.strip()
         if stripped.startswith("EMOJI_OPTIONS:"):
@@ -79,9 +142,12 @@ def _parse_reply(reply_text: str) -> dict:
     ]
 
     if len(option_lines) >= 2:
-        mcq_options = [l.split(None, 1)[1].strip() if len(l.split(None, 1)) > 1 else l for l in option_lines]
-        non_option  = [l for l in lines if l.strip() not in option_lines]
-        reply_text  = "\n".join(non_option).strip()
+        mcq_options = [
+            l.split(None, 1)[1].strip() if len(l.split(None, 1)) > 1 else l
+            for l in option_lines
+        ]
+        non_option = [l for l in lines if l.strip() not in option_lines]
+        reply_text = "\n".join(non_option).strip()
 
     check_in = ["how are you", "how do you feel", "how is your mood", "feeling today", "how have you been"]
     if not mcq_options and not emoji_options and any(t in reply_text.lower() for t in check_in):
@@ -90,31 +156,62 @@ def _parse_reply(reply_text: str) -> dict:
     return {"reply": reply_text, "mcq_options": mcq_options, "emoji_options": emoji_options}
 
 
-# ── Feature 1+2: Text chat ─────────────────────────────────────────────────────
+# ── Main chat ──────────────────────────────────────────────────────────────────
 
 async def get_ai_reply(
     history: List[ChatMessage],
     new_user_message: str,
     user_name: str,
     risk_context: Optional[str] = None,
+    user_profile: Optional[dict] = None,
+    mode: str = "NORMAL",
+    categories: Optional[List[str]] = None,
 ) -> dict:
-    client   = _get_client()
-    contents = _build_history(history)
-    contents.append(types.Content(role="user", parts=[types.Part(text=new_user_message)]))
 
-    response = client.models.generate_content(
-        model="gemini-3-flash-preview",
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=_build_system(user_name, risk_context),
-            max_output_tokens=450,
-            temperature=0.7,
-        ),
+    # RAG retrieval
+    if mode == "CRISIS":
+        rag_context = retrieve_crisis_context()
+    else:
+        rag_context = retrieve_context(
+            query=new_user_message,
+            categories=categories or [],
+            top_k=3,
+            min_score=0.30,
+        )
+
+    system = _build_system(
+        user_name=user_name,
+        risk_context=risk_context,
+        user_profile=user_profile,
+        rag_context=rag_context,
+        mode=mode,
     )
-    return _parse_reply(response.text.strip())
+
+    messages = [{"role": "system", "content": system}]
+    messages += _build_history(history)
+    messages.append({"role": "user", "content": new_user_message})
+
+    try:
+        client   = _get_client()
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            max_tokens=450,
+            temperature=0.7,
+        )
+        text = (response.choices[0].message.content or "").strip()
+        if not text:
+            text = "I'm here with you. Do you want to share a bit more about what's going on?"
+    except Exception as e:
+        import traceback
+        print(f"GROQ ERROR: {e}")
+        traceback.print_exc()
+        text = "I'm having a small technical issue right now, but I'm here to listen. Can you tell me more?"
+
+    return _parse_reply(text)
 
 
-# ── Feature 3: Image evidence analysis ────────────────────────────────────────
+# ── Image evidence ─────────────────────────────────────────────────────────────
 
 async def analyze_evidence_image(
     image_bytes: bytes,
@@ -122,53 +219,25 @@ async def analyze_evidence_image(
     user_name: str,
     context: Optional[str] = None,
 ) -> dict:
-    client = _get_client()
-
-    ext       = filename.rsplit(".", 1)[-1].lower()
-    mime_map  = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-                 "gif": "image/gif", "webp": "image/webp"}
-    mime_type = mime_map.get(ext, "image/jpeg")
-
-    system_prompt = (
-        "You are an AI assistant helping analyze images uploaded as potential evidence "
-        "in harassment or mental health support cases. Analyze the image and respond ONLY "
-        "in this exact JSON format with no extra text:\n"
-        '{"description":"what the image shows","risk_indicators":["indicator1"],'
-        '"is_harassment_evidence":true,"confidence":"medium",'
-        '"suggested_actions":["action1"],"ai_analysis":"full analysis paragraph"}'
-    )
-
-    image_part = types.Part(
-        inline_data=types.Blob(mime_type=mime_type, data=image_bytes)
-    )
-    text_part = types.Part(
-        text=f"Analyze this image uploaded by {user_name} as potential evidence. {('Context: ' + context) if context else ''}"
-    )
-
-    response = client.models.generate_content(
-        model="gemini-3-flash-preview",
-        contents=[types.Content(role="user", parts=[image_part, text_part])],
-        config=types.GenerateContentConfig(system_instruction=system_prompt, max_output_tokens=600),
-    )
-
-    raw = response.text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-
-    try:
-        return json.loads(raw)
-    except Exception:
-        return {
-            "description": "Image received.", "risk_indicators": [],
-            "is_harassment_evidence": False, "confidence": "low",
-            "suggested_actions": ["Please describe what this image shows in the chat."],
-            "ai_analysis": raw,
-        }
+    """Groq does not support vision — return guidance to describe in chat."""
+    return {
+        "description": f"Image '{filename}' received.",
+        "risk_indicators": [],
+        "is_harassment_evidence": False,
+        "confidence": "low",
+        "suggested_actions": [
+            "Please describe what this image shows in the chat.",
+            "Include: who is in the image, what is happening, and when it was taken.",
+            "If this is evidence of harassment, save the original file safely.",
+        ],
+        "ai_analysis": (
+            f"Image '{filename}' has been received. "
+            "Please describe its contents in the chat so I can help you better."
+        ),
+    }
 
 
-# ── Feature 3b: Video evidence ────────────────────────────────────────────────
+# ── Video evidence ─────────────────────────────────────────────────────────────
 
 async def analyze_evidence_video(
     video_bytes: bytes,
@@ -176,89 +245,42 @@ async def analyze_evidence_video(
     user_name: str,
     context: Optional[str] = None,
 ) -> dict:
-    client = _get_client()
-
-    prompt = (
-        f"{user_name} uploaded a video named '{filename}' as potential evidence. "
-        f"{('Context: ' + context) if context else ''} "
-        "Provide evidence preservation guidance and next steps. "
-        'Respond ONLY in JSON: {"description":"...","risk_indicators":[...],'
-        '"is_harassment_evidence":true/false,"confidence":"low/medium/high",'
-        '"suggested_actions":[...],"ai_analysis":"..."}'
-    )
-
-    response = client.models.generate_content(
-        model="gemini-3-flash-preview",
-        contents=[types.Content(role="user", parts=[types.Part(text=prompt)])],
-        config=types.GenerateContentConfig(max_output_tokens=500),
-    )
-
-    raw = response.text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-
-    try:
-        return json.loads(raw)
-    except Exception:
-        return {
-            "description": f"Video '{filename}' received.", "risk_indicators": [],
-            "is_harassment_evidence": False, "confidence": "low",
-            "suggested_actions": ["Store the video safely.", "Describe the contents in the chat."],
-            "ai_analysis": "Video uploaded. Please describe what the video shows.",
-        }
+    return {
+        "description": f"Video '{filename}' has been securely received and stored.",
+        "risk_indicators": [],
+        "is_harassment_evidence": False,
+        "confidence": "low",
+        "suggested_actions": [
+            "Your video has been stored as evidence. Do not delete the original.",
+            "Please describe in the chat what this video shows and when it was recorded.",
+            "Note the date, time, location, and names of anyone involved.",
+            "If you are in immediate danger, call Emergency: 112",
+        ],
+        "ai_analysis": (
+            f"Video file '{filename}' has been securely saved. "
+            "Please describe what the video contains in the chat."
+        ),
+    }
 
 
-
-# ── Feature 4: Voice to text via Gemini ───────────────────────────────────────
+# ── Voice transcription ────────────────────────────────────────────────────────
 
 async def transcribe_voice(audio_bytes: bytes, filename: str, mime_type: str = "audio/webm") -> dict:
-    """
-    Transcribe voice using Gemini's multimodal audio capability.
-    Supports webm, mp3, wav, m4a, ogg, mp4 audio.
-    """
-    client = _get_client()
-
-    # Normalize mime type — browser often sends audio/webm;codecs=opus
-    clean_mime = mime_type.split(";")[0].strip() if mime_type else "audio/webm"
-
-    # Gemini supported audio types
-    supported = {
-        "audio/webm": "audio/webm",
-        "audio/mp4":  "audio/mp4",
-        "audio/mpeg": "audio/mpeg",
-        "audio/mp3":  "audio/mpeg",
-        "audio/wav":  "audio/wav",
-        "audio/ogg":  "audio/ogg",
-        "audio/x-m4a": "audio/mp4",
-        "audio/m4a":   "audio/mp4",
-    }
-    gemini_mime = supported.get(clean_mime, "audio/webm")
-
+    """Use Groq Whisper for transcription — excellent and free."""
     try:
-        audio_part = types.Part(
-            inline_data=types.Blob(mime_type=gemini_mime, data=audio_bytes)
+        client = _get_client()
+        # Groq supports Whisper via audio transcription endpoint
+        transcription = client.audio.transcriptions.create(
+            file=(filename, audio_bytes),
+            model="whisper-large-v3",
+            response_format="text",
         )
-        text_part = types.Part(
-            text="Transcribe this audio recording exactly as spoken. Return only the transcribed text, nothing else."
-        )
-
-        response = client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=[types.Content(role="user", parts=[audio_part, text_part])],
-            config=types.GenerateContentConfig(max_output_tokens=500, temperature=0.1),
-        )
-
-        transcription = response.text.strip()
-        return {"transcription": transcription, "language": "en", "confidence": "high"}
-
+        text = transcription if isinstance(transcription, str) else transcription.text
+        return {"transcription": text.strip(), "language": "en", "confidence": "high"}
     except Exception as e:
+        print(f"GROQ WHISPER ERROR: {e}")
         return {"transcription": "", "language": "en", "confidence": "low", "error": str(e)}
+
 
 async def get_opening_message() -> str:
     return OPENING_MESSAGE
-
-
-
-

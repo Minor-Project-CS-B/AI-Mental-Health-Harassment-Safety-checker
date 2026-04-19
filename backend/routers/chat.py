@@ -64,13 +64,42 @@ async def send_message(
         f"Risk score: {user.get('risk_score', 0.0):.2f}."
     )
 
+    # ── Build user profile for cross-session memory ────────────────────────────
+    user_profile = {
+        "age":               user.get("age"),
+        "gender":            user.get("gender"),
+        "concern":           user.get("concern") or user.get("primary_concern"),
+        "track":             user.get("track") or user.get("assessment_track"),
+        "last_risk_level":   user.get("current_risk_level"),
+        "assessment_summary": user.get("assessment_summary"),
+    }
+    # Remove None values so prompt stays clean
+    user_profile = {k: v for k, v in user_profile.items() if v}
+
     logger.info(f"Chat message | user={current_user.user_id} | type={payload.input_type.value}")
+
+    # ── Classifier → mode → RAG → LLM ──────────────────────────────────────────
+    from engine.classifier import classify_input
+
+    classification = classify_input(payload.message)
+    risk_score     = classification["risk_score"]
+
+    def get_risk_mode(score):
+        if score >= 0.8:   return "CRISIS"
+        elif score >= 0.5: return "SUPPORT"
+        return "NORMAL"
+
+    mode = get_risk_mode(risk_score)
+    logger.info(f"mode={mode} | risk={risk_score:.2f}")
 
     ai_result = await get_ai_reply(
         history=history,
         new_user_message=payload.message,
         user_name=user["name"],
-        risk_context=risk_context,
+        risk_context=f"Risk score: {risk_score:.2f}",
+        user_profile=user_profile if user_profile else None,
+        mode=mode,
+        categories=classification.get("categories", []),   # ✅ RAG boost
     )
 
     # ── Passive risk analysis ──────────────────────────────────────────────────

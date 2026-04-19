@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str = os.getenv("OPENAI_API_KEY")
     gemini_api_key: str = os.getenv("google_api_key")
+    groq_api_key: str = os.getenv("GROQ_API_KEY", "")
 
     model_config = {"env_file": ".env", "extra": "ignore"}
     
