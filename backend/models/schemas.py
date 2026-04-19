@@ -230,7 +230,7 @@ class VoiceTranscriptionResult(BaseModel):
 # ══════════════════════════════════════════════════════════════════════════════
 # Dynamic Assessment (AI + RAG generated questions)
 # ══════════════════════════════════════════════════════════════════════════════
- 
+
 class DynamicQuestion(BaseModel):
     id:       str
     text:     str
@@ -239,17 +239,58 @@ class DynamicQuestion(BaseModel):
     emoji:    List[str]
     category: str            # what aspect this question probes
     why:      str            # why AI generated this question (for explainability)
- 
- 
+
+
 class DynamicAssessmentSession(BaseModel):
     session_id:   str
     track:        str
     questions:    List[DynamicQuestion]
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     based_on_chat: bool = False    # whether chat history was used
- 
- 
+
+
 class DynamicAssessmentSubmission(BaseModel):
     session_id: str
     track:      TrackType
     answers:    List[AssessmentAnswer]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Dynamic Response Generator
+# ══════════════════════════════════════════════════════════════════════════════
+
+class DynamicResponseRequest(BaseModel):
+    track:            TrackType
+    risk_level:       RiskLevel
+    risk_score:       float
+    matched_keywords: Optional[List[str]] = []   # category names detected
+    assessment_answers: Optional[List[str]] = [] # actual answer texts from assessment
+    free_text:        Optional[str] = None        # any free text user wrote
+
+
+class PersonalizedSuggestion(BaseModel):
+    text:     str
+    category: str   # e.g. "sleep", "anxiety", "social_support"
+    priority: int   # 1 = most important, 5 = least
+
+
+class DynamicResponseResult(BaseModel):
+    support_message:  str
+    suggestions:      List[PersonalizedSuggestion]
+    resources:        List[ResourceItem]
+    coping_plan:      str
+    follow_up_tip:    str
+    generated_by:     str = "ai"
+    disclaimer:       str = (
+        "This is AI-generated support content and not a substitute "
+        "for professional medical or legal advice."
+    )
+
+
+class DynamicResponseRequest(BaseModel):
+    track:              TrackType
+    risk_level:         RiskLevel
+    risk_score:         float
+    matched_keywords:   Optional[List[str]] = []
+    assessment_answers: Optional[List[str]] = []
+    free_text:          Optional[str] = None

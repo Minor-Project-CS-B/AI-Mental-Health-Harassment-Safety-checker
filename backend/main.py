@@ -1,4 +1,5 @@
 #main.py
+#main.py
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,7 +7,7 @@ from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 
 from database.connection import connect_db, close_db, get_settings
-from routers import auth, onboarding, assessment, chat, dashboard, Help
+from routers import auth, onboarding, assessment, chat, dashboard, Help, response
 from logger.setup import configure_uvicorn_logging, get_app_logger
 from logger.middleware import AccessLogMiddleware
 
@@ -60,6 +61,7 @@ app.include_router(assessment.router)
 app.include_router(chat.router)
 app.include_router(dashboard.router)
 app.include_router(Help.router)
+app.include_router(response.router)
 
 
 # ── Custom OpenAPI schema — enables Swagger Authorize button ───────────────────
@@ -111,6 +113,7 @@ async def root():
     }
 
     
+print(settings.gemini_api_key)
 
 @app.get("/health", tags=["Health"])
 async def health():

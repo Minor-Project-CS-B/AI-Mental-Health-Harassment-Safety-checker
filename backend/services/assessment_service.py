@@ -18,8 +18,7 @@ Every call generates a FRESH set — never the same questions twice.
 import json
 import uuid
 from typing import List, Optional
-from google import genai
-from google.genai import types
+from groq import Groq
 from database.connection import get_settings
 
 # ── Static question banks (RAG knowledge base) ─────────────────────────────────
@@ -111,7 +110,7 @@ async def generate_dynamic_questions(
     Returns a dict with session_id, questions list, and metadata.
     """
     settings = get_settings()
-    client   = genai.Client(api_key=settings.gemini_api_key)
+    client   = Groq(api_key=settings.groq_api_key)
 
     # ── Step 1: Select RAG base ────────────────────────────────────────────────
     rag_base   = MENTAL_HEALTH_RAG_BASE if track == "mental_health" else HARASSMENT_RAG_BASE
@@ -138,8 +137,6 @@ Rules:
 - Generate FRESH, PERSONALIZED questions every time
 - Vary the question angles — don't ask the same thing twice in different words
 - Each question needs a category label and a brief reason why you generated it
-- Don't take only the question bank questions make new and different questions 
-- Very question should be unique and different from last assessments question 
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -171,17 +168,18 @@ Generate 10 fresh, personalized questions now."""
     # ── Step 4: Call GPT ──────────────────────────────────────────────────────
     combined_prompt = system_prompt + "\n\n" + user_prompt
 
-    response = client.models.generate_content(
-        model="gemini-3-flash-preview",
-        contents=[types.Content(role="user", parts=[types.Part(text=combined_prompt)])],
-        config=types.GenerateContentConfig(
-            max_output_tokens=1500,
-            temperature=0.85,
-        ),
+    completion = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": "You are a clinical psychologist generating assessment questions. Respond ONLY in valid JSON. No markdown, no code fences."},
+            {"role": "user",   "content": combined_prompt},
+        ],
+        max_tokens=1500,
+        temperature=0.85,
     )
 
     # ── Step 5: Parse and structure ───────────────────────────────────────────
-    raw_text = response.text.strip()
+    raw_text = completion.choices[0].message.content.strip()
     if raw_text.startswith("```"):
         raw_text = raw_text.split("```")[1]
         if raw_text.startswith("json"):

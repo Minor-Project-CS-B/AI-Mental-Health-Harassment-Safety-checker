@@ -1,3 +1,5 @@
+#api.js
+
 import axios from 'axios';
 
 const api = axios.create({ 
@@ -22,10 +24,10 @@ api.interceptors.response.use(
 );
 
 /* --- Authentication --- */
-export const register        = (data)               => api.post('/auth/register', data);
-export const verifyMagicLink = (token)              => api.post('/auth/verify-magic-link', { token });
-export const getMe           = ()                   => api.get('/auth/me');
-export const requestLink     = (email)              => api.post(`/auth/request-link?email=${email}`);
+export const register        = (data)  => api.post('/auth/register', data);
+export const verifyMagicLink = (token) => api.post('/auth/verify-magic-link', { token });
+export const getMe           = ()      => api.get('/auth/me');
+export const requestLink     = (email) => api.post(`/auth/request-link?email=${email}`);
 
 export const login = (username, password) => {
   const form = new URLSearchParams();
@@ -70,5 +72,10 @@ export const voiceToText = (formData) =>
 export const getDashboard = () => api.get('/dashboard/');
 export const getHelp      = () => api.get('/help/');
 export const getEmergency = () => api.get('/help/emergency');
+
+/* --- Dynamic Response Generator --- */
+export const generateResponse   = (data) => api.post('/response/generate', data);
+export const getLatestResponse  = ()     => api.get('/response/latest');
+export const getResponseHistory = ()     => api.get('/response/history');
 
 export default api;
