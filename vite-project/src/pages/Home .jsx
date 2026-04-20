@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from "react";
 import logo from '../assets/logo minor.jpg'; 
 
 const stats = [
-  { val: "10K+", label: "Users Helped" },
-  { val: "95%",  label: "Accuracy Rate" },
+  { val: "CSE", label: "Minor Project" },
+  { val: "Deep",  label: "Breath" },
   { val: "24/7", label: "AI Available" },
   { val: "100%", label: "Anonymous" },
 ];
