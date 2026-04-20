@@ -48,7 +48,7 @@ app.add_middleware(AccessLogMiddleware)
 # ── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[settings.frontend_url, "http://localhost:5173", "http://localhost:3000", "https://ai-mental-health-and-harassment-checker.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
