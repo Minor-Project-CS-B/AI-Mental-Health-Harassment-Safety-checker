@@ -198,7 +198,8 @@ class DashboardData(BaseModel):
     total_assessments:   int
     last_active:         datetime
     recent_assessments:  List[dict] = []
-    risk_history:        List[dict] = []    # Last 7 risk scores over time
+    risk_history:        List[dict] = []    # Last 7 assessment risk scores (0-100)
+    sentiment_history:   List[dict] = []    # Last 10 chat mood scores (0-100)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

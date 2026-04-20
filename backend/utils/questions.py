@@ -2,7 +2,7 @@
 
 """
 Static onboarding question bank.
-These 10 questions run on first login to build the user's initial profile.
+These 12 questions run on first login to build the user's initial profile.
 They are general (not track-specific) and help the AI understand the user's baseline.
 """
 

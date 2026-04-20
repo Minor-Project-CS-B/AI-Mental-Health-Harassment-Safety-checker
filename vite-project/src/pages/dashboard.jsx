@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
 } from 'recharts';
 import { ShieldAlert, MessageSquare, ClipboardCheck, Lightbulb, Phone } from 'lucide-react';
-import { getDashboard } from '../services/api';
+import { getDashboard, getAssessmentHistory, getLatestResponse } from '../services/api';
 import Navbar from '../components/Navbar';
 
 const theme = {
@@ -184,29 +184,55 @@ function TipsSection({ riskLevel, track }) {
 // ── Main Dashboard ────────────────────────────────────────────────────────
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [data,         setData]         = useState(null);
+  const [assessHist,   setAssessHist]   = useState([]);
+  const [latestResp,   setLatestResp]   = useState(null);
+  const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
-    getDashboard()
-      .then(r => {
-        if (!r.data.onboarding_complete) {
-          navigate('/onboarding');
-          return;
-        }
-        setData(r.data);
-      })
-      .catch(err => console.error("Dashboard Fetch Error:", err))
-      .finally(() => setLoading(false));
+    Promise.all([
+      getDashboard(),
+      getAssessmentHistory().catch(() => ({ data: { history: [] } })),
+      getLatestResponse().catch(() => ({ data: { response: null } })),
+    ]).then(([dashRes, histRes, respRes]) => {
+      if (!dashRes.data.onboarding_complete) { navigate('/onboarding'); return; }
+      setData(dashRes.data);
+      setAssessHist(histRes.data.history || []);
+      setLatestResp(respRes.data.response || null);
+    })
+    .catch(err => console.error('Dashboard error:', err))
+    .finally(() => setLoading(false));
   }, [navigate]);
 
-  const generateFactorData = (score) => {
-    const s = score * 100;
+  // Build chart data from REAL backend sentiment_history.
+  // sentiment_history is an array of { mood: 0-100, label, time } from chat messages.
+  // Falls back to risk-score-derived estimates if no chat data exists yet.
+  const buildChartData = () => {
+    const sh = data?.sentiment_history || [];
+    const rh = data?.risk_history      || [];
+
+    if (sh.length === 0 && rh.length === 0) {
+      // No data at all — return placeholder that explains what will appear
+      return [
+        { factor: 'Complete a chat', score: 0, fill: '#e2e8f0' },
+      ];
+    }
+
+    // Average mood from real chat sentiment (0-100 scale)
+    const avgMood = sh.length > 0
+      ? sh.reduce((sum, m) => sum + m.mood, 0) / sh.length
+      : 50;
+
+    // Average risk from assessment history (already 0-100)
+    const avgRisk = rh.length > 0
+      ? rh.reduce((sum, r) => sum + r.score, 0) / rh.length
+      : (data?.risk_score || 0) * 100;
+
     return [
-      { factor: 'Happiness', score: Math.max(100 - s, 20), fill: '#86efac' },
-      { factor: 'Confidence', score: Math.max(90 - s, 30), fill: '#a7f3d0' },
-      { factor: 'Stress',     score: Math.min(s + 10, 95), fill: '#fca5a5' },
-      { factor: 'Anxiety',    score: Math.min(s + 5,  90), fill: '#fdba74' },
+      { factor: 'Mood',       score: Math.round(avgMood),                      fill: '#86efac' },
+      { factor: 'Wellbeing',  score: Math.round(Math.max(100 - avgRisk, 10)),   fill: '#a7f3d0' },
+      { factor: 'Stress',     score: Math.round(Math.min(avgRisk + 5,  95)),    fill: '#fca5a5' },
+      { factor: 'Risk',       score: Math.round(Math.min(avgRisk, 95)),         fill: '#fdba74' },
     ];
   };
 
@@ -274,7 +300,7 @@ const Dashboard = () => {
               <h3 className="text-2xl font-black text-slate-800 mb-6">Sentiment Trends</h3>
               <div className="w-full h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={generateFactorData(data?.risk_score || 0)}>
+                  <BarChart data={buildChartData()}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis dataKey="factor" axisLine={false} tickLine={false}
                       tick={{ fill: '#64748b', fontSize: 13 }} />
@@ -284,7 +310,7 @@ const Dashboard = () => {
                       contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
                     />
                     <Bar dataKey="score" radius={[10, 10, 0, 0]}>
-                      {generateFactorData(data?.risk_score || 0).map((entry, index) => (
+                      {buildChartData().map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Bar>
