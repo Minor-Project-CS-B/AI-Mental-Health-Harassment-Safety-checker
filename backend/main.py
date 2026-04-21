@@ -113,7 +113,7 @@ async def root():
     }
 
     
-print(settings.gemini_api_key)
+
 
 @app.get("/health", tags=["Health"])
 async def health():
