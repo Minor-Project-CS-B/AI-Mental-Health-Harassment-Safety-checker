@@ -11,7 +11,7 @@ const Navbar = () => {
   // Function to quickly redirect to a neutral site for safety
   const handleQuickExit = () => {
    
-    window.location.href = "https://ai-mental-health-and-harassment-checker.onrender.com";
+    window.location.href = "http://localhost:5173/";
   };
 
 
