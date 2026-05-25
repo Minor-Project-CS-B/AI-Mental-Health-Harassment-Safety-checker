@@ -63,6 +63,40 @@ class TokenData(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Google OAuth2
+# ══════════════════════════════════════════════════════════════════════════════
+ 
+class GoogleAuthRequest(BaseModel):
+    """Frontend sends Google's credential token after user picks their Gmail."""
+    credential: str   # JWT token from Google Identity Services
+ 
+ 
+class GoogleProfileComplete(BaseModel):
+    """
+    After Google login, new users must complete their profile.
+    Email and name come from Google — user only sets username + password.
+    """
+    google_id:  str
+    email:      str
+    name:       str
+    username:   str   = Field(..., min_length=3, max_length=30)
+    password:   str   = Field(..., min_length=6)
+ 
+ 
+class GoogleAuthResponse(BaseModel):
+    """Returned after Google auth — tells frontend what to do next."""
+    status:       str   # "logged_in" | "needs_profile"
+    access_token: Optional[str] = None   # set if status == "logged_in"
+    token_type:   str   = "bearer"
+    # These are passed back so CompleteProfile page can pre-fill them
+    google_id:    Optional[str] = None
+    email:        Optional[str] = None
+    name:         Optional[str] = None
+ 
+ 
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # User profile (stored in MongoDB)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -295,3 +329,23 @@ class DynamicResponseRequest(BaseModel):
     matched_keywords:   Optional[List[str]] = []
     assessment_answers: Optional[List[str]] = []
     free_text:          Optional[str] = None
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Email OTP Verification
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SendOTPRequest(BaseModel):
+    """Frontend sends this to request an OTP before registration."""
+    email:    EmailStr
+    name:     str = Field(..., min_length=2)
+    username: str = Field(..., min_length=3, max_length=30)
+    password: str = Field(..., min_length=6)
+
+
+class VerifyOTPRequest(BaseModel):
+    """Frontend sends OTP + original form data to complete registration."""
+    email:    EmailStr
+    otp:      str = Field(..., min_length=6, max_length=6)
+    name:     str
+    username: str
+    password: str

@@ -79,3 +79,76 @@ async def send_magic_link_email(to_email: str, name: str, magic_url: str) -> boo
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send to {to_email}: {e}")
         return False
+
+async def send_otp_email(to_email: str, name: str, otp: str) -> bool:
+    """
+    Sends a 6-digit OTP to verify the email address during registration.
+    OTP expires in 10 minutes.
+    """
+    settings = get_settings()
+    subject  = f"Your {settings.app_name} verification code"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial, sans-serif; background: #f4f4f4; padding: 40px;">
+      <div style="max-width: 480px; margin: auto; background: #fff;
+                  border-radius: 12px; padding: 40px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+
+        <h2 style="color: #2d2d2d; margin-bottom: 8px;">Verify your email 📧</h2>
+        <p style="color: #555; font-size: 15px; line-height: 1.6;">
+          Hi <strong>{name}</strong>, enter this code to complete your
+          <strong>{settings.app_name}</strong> registration.
+          It expires in <strong>10 minutes</strong>.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+          <div style="background: #f0fdfe; border: 2px solid #06b6d4;
+                      border-radius: 12px; padding: 24px; display: inline-block;">
+            <span style="font-size: 42px; font-weight: 900; letter-spacing: 12px;
+                         color: #0891b2; font-family: monospace;">{otp}</span>
+          </div>
+        </div>
+
+        <p style="color: #999; font-size: 13px;">
+          If you didn't request this code, ignore this email — your inbox is safe.
+          Never share this code with anyone.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #bbb; font-size: 12px; text-align: center;">
+          {settings.app_name} · AI-powered Mental Health & Safety Support
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+
+    text_body = (
+        f"Hi {name},\n\n"
+        f"Your {settings.app_name} verification code is: {otp}\n\n"
+        f"This code expires in 10 minutes. Do not share it with anyone.\n\n"
+        f"— The {settings.app_name} Team"
+    )
+
+    msg             = MIMEMultipart("alternative")
+    msg["Subject"]  = subject
+    msg["From"]     = f"{settings.app_name} <{settings.gmail_user}>"
+    msg["To"]       = to_email
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    try:
+        await aiosmtplib.send(
+            msg,
+            hostname="smtp.gmail.com",
+            port=587,
+            start_tls=True,
+            username=settings.gmail_user,
+            password=settings.gmail_app_password,
+        )
+        print(f"[EMAIL] OTP sent to {to_email}")
+        return True
+    except Exception as e:
+        print(f"[EMAIL ERROR] OTP failed to {to_email}: {e}")
+        return False

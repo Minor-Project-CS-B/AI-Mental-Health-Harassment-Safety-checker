@@ -8,6 +8,7 @@ import Dashboard from "./pages/dashboard";
 import Chat from "./pages/chat";
 import Assessment from "./pages/questionnarie";
 import Help from "./pages/help.jsx";
+import CompleteProfile from "./pages/CompleteProfile.jsx";
 
 
 
@@ -31,6 +32,7 @@ function App() {
         <Route path="/chat" element={<Chat />} />
 
         <Route path="/help" element={<Help />} />
+        <Route path="/complete-profile" element={<CompleteProfile />} />
 
        
 

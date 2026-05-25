@@ -22,3 +22,5 @@ frontend/.cache/
 .cache/
 dist/
 build/
+
+*.csv

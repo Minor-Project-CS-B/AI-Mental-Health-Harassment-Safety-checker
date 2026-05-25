@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api';
+import { login, googleAuth } from '../services/api';
 import logo from '../assets/logo minor.jpg';
 
 const Login = () => {
@@ -9,6 +9,76 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPass, setShowPass] = useState(false);
+
+  // ── Google Sign-In handler ────────────────────────────────────────────────
+  const handleGoogleLogin = async (response) => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await googleAuth(response.credential);
+      const d   = res.data;
+      if (d.status === 'logged_in') {
+        localStorage.setItem('token', d.access_token);
+        navigate('/dashboard');
+      } else if (d.status === 'needs_profile') {
+        // New user — send to profile completion page with Google data as params
+        const params = new URLSearchParams({
+          google_id: d.google_id,
+          email:     d.email,
+          name:      encodeURIComponent(d.name || ''),
+        });
+        navigate(`/complete-profile?${params.toString()}`);
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : 'Google sign-in failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load Google Identity Services script and initialize button
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      console.warn('VITE_GOOGLE_CLIENT_ID not set in .env file');
+      return;
+    }
+
+    const renderGoogleBtn = () => {
+      const el = document.getElementById('google-btn-login');
+      if (!el || !window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback:  handleGoogleLogin,
+      });
+      window.google.accounts.id.renderButton(el, {
+        theme: 'outline',
+        size:  'large',
+        width: 360,
+        text:  'signin_with',
+        logo_alignment: 'center',
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleBtn();
+      return;
+    }
+
+    const existing = document.getElementById('google-gsi-script');
+    if (!existing) {
+      const script  = document.createElement('script');
+      script.id     = 'google-gsi-script';
+      script.src    = 'https://accounts.google.com/gsi/client';
+      script.async  = true;
+      script.defer  = true;
+      script.onload = renderGoogleBtn;
+      document.head.appendChild(script);
+    } else {
+      setTimeout(renderGoogleBtn, 100);
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -293,6 +363,15 @@ const Login = () => {
               {loading ? <><span className="lg-spin"/>Signing in...</> : 'Sign In →'}
             </button>
           </form>
+
+          <div className="lg-or">
+            <div className="lg-orl"/>
+            <span className="lg-ort">or</span>
+            <div className="lg-orl"/>
+          </div>
+
+          {/* Google Sign-In button — rendered by Google SDK */}
+          <div id="google-btn-login" style={{display:'flex',justifyContent:'center',marginBottom:14}}/>
 
           <div className="lg-or">
             <div className="lg-orl"/>

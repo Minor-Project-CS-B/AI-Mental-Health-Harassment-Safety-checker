@@ -1,9 +1,8 @@
-
-
 import axios from 'axios';
 
 const api = axios.create({ 
-  baseURL: 'https://aimhhc.onrender.com' 
+  baseURL: 'http://127.0.0.1:8000',
+
 });
 
 api.interceptors.request.use(cfg => {
@@ -24,7 +23,11 @@ api.interceptors.response.use(
 );
 
 /* --- Authentication --- */
+export const googleAuth            = (credential) => api.post('/auth/google', { credential });
+export const googleCompleteProfile = (data)       => api.post('/auth/google/complete-profile', data);
 export const register        = (data)  => api.post('/auth/register', data);
+export const sendOTP         = (data)  => api.post('/auth/send-otp', data);
+export const verifyOTP       = (data)  => api.post('/auth/verify-otp', data);
 export const verifyMagicLink = (token) => api.post('/auth/verify-magic-link', { token });
 export const getMe           = ()      => api.get('/auth/me');
 export const requestLink     = (email) => api.post(`/auth/request-link?email=${email}`);
