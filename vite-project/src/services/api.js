@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({ 
-  baseURL: 'https://aimhhc2.onrender.com',
-  baseURL2: 'http://127.0.0.1:8000',
+  baseURL: 'http://127.0.0.1:8000',
 
 });
 
