@@ -26,12 +26,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
-# ── Google token verification ──────────────────────────────────────────────────
- 
+# ── Google token verification ─────────────────────────────────────────────────
+
 def verify_google_token(credential: str) -> dict:
     """
     Verifies the JWT credential sent by Google Identity Services.
-    Returns the decoded payload: {sub, email, name, picture, ...}
+    Returns decoded payload: {sub, email, name, picture}
     Raises HTTPException if token is invalid or expired.
     """
     try:
@@ -50,7 +50,6 @@ def verify_google_token(credential: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Google token. Please try signing in again."
         )
- 
 
 
 # ── Register ───────────────────────────────────────────────────────────────────
