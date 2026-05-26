@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # Google OAuth2
     google_client_id:  str = os.getenv("GOOGLE_CLIENT_ID", "")
 
+    # Resend email API (fallback when SMTP fails on Render)
+    resend_api_key:    str = os.getenv("RESEND_API_KEY", "")
+    resend_from_email: str = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
