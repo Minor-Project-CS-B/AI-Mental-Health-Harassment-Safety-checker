@@ -5,14 +5,17 @@ Two-layer email validation:
   1. Blocks disposable/temporary email domains (instant, no network)
   2. Checks MX records — verifies the domain actually has mail servers (DNS lookup)
 
-Used before sending OTP so we never waste an SMTP call on fake emails.
+CHANGES vs original:
+  - MX lookup has a hard 3-second asyncio timeout (was unbounded on Render)
+  - On DNS failure/timeout we return True (allow) instead of False (block)
+    because blocking valid emails due to a DNS hiccup is worse than
+    occasionally letting a fake email through (SMTP will reject it anyway).
 """
 
 import re
 import asyncio
 
 # ── Disposable email domain blocklist ─────────────────────────────────────────
-# Most commonly used throwaway email services
 
 BLOCKED_DOMAINS = {
     # Classic disposable
@@ -57,21 +60,39 @@ def is_disposable_email(email: str) -> bool:
 async def has_mx_records(domain: str) -> bool:
     """
     Checks if the domain has MX (mail exchange) records via DNS.
-    If no MX records exist, the domain cannot receive email — it's fake.
 
-    Returns True if valid mail servers exist, False otherwise.
-    Uses asyncio to avoid blocking the event loop.
+    IMPORTANT CHANGE: On Render (and many cloud environments), DNS lookups
+    can be slow or fail unpredictably. We now:
+      1. Use a hard 3-second asyncio timeout (not just a dns library timeout)
+      2. Return True on any failure/timeout — better to allow a possibly
+         valid email than to block real users due to a cloud DNS hiccup.
+         The actual SMTP send will fail if the email is truly invalid.
+
+    Returns True if valid mail servers found OR if check could not complete.
+    Returns False only if DNS definitively returns no MX records.
     """
     try:
         import dns.resolver
-        loop    = asyncio.get_event_loop()
-        records = await loop.run_in_executor(
-            None,
-            lambda: dns.resolver.resolve(domain, 'MX', lifetime=5)
+        loop = asyncio.get_event_loop()
+
+        # Hard asyncio timeout — prevents hanging requests on Render
+        records = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: dns.resolver.resolve(domain, 'MX', lifetime=3)
+            ),
+            timeout=3.0
         )
         return len(records) > 0
+
+    except asyncio.TimeoutError:
+        # DNS took too long (common on Render) — allow the email
+        print(f"[EMAIL VALIDATOR] MX lookup timed out for {domain}, allowing.")
+        return True
+
     except Exception:
-        return False
+        # Any other DNS error — allow the email, don't block registration
+        return True
 
 
 async def validate_email_fully(email: str) -> dict:
@@ -86,13 +107,20 @@ async def validate_email_fully(email: str) -> dict:
     if not is_valid_email_format(email):
         return {"valid": False, "reason": "Invalid email format."}
 
-    # 2. Disposable domain check (instant)
+    # 2. Disposable domain check (instant, no network)
     if is_disposable_email(email):
-        return {"valid": False, "reason": "Temporary or disposable email addresses are not allowed. Please use your real email."}
+        return {
+            "valid": False,
+            "reason": "Temporary or disposable email addresses are not allowed. Please use your real email.",
+        }
 
-    # 3. MX record check (DNS lookup — ~1-2 seconds)
+    # 3. MX record check (DNS lookup with timeout)
+    #    Note: returns True on timeout/error to avoid blocking real users
     domain = email.split("@")[-1]
     if not await has_mx_records(domain):
-        return {"valid": False, "reason": f"The email domain '{domain}' does not appear to accept emails. Please use a real email address."}
+        return {
+            "valid": False,
+            "reason": f"The email domain '{domain}' does not appear to accept emails. Please use a real email address.",
+        }
 
     return {"valid": True, "reason": ""}

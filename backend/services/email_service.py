@@ -1,17 +1,124 @@
+# services/email_service.py
+# ─────────────────────────────────────────────────────────────────────────────
+# Email sending via Resend API (primary) with Gmail SMTP as fallback.
+#
+# WHY: Render free tier blocks outbound SMTP ports (587, 465, 25).
+#      Resend uses HTTPS (port 443) which is always open on Render.
+#      Gmail SMTP is kept as a fallback for local development.
+# ─────────────────────────────────────────────────────────────────────────────
+
+import httpx
 import aiosmtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from database.connection import get_settings
 
 
-async def send_magic_link_email(to_email: str, name: str, magic_url: str) -> bool:
+# ── Resend API (Primary — works on Render free tier) ──────────────────────────
+
+async def _send_via_resend(to_email: str, subject: str, html_body: str, text_body: str) -> bool:
     """
-    Sends the authentication magic link email via Gmail SMTP.
-    Returns True on success, False on failure.
+    Sends email via Resend API over HTTPS (port 443).
+    This works on Render free tier where SMTP ports are blocked.
+    Requires RESEND_API_KEY env variable.
     """
     settings = get_settings()
 
-    subject = f"Your {settings.app_name} login link"
+    if not settings.resend_api_key:
+        print("[RESEND] No RESEND_API_KEY set, skipping Resend.")
+        return False
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": f"{settings.app_name} <{settings.resend_from_email}>",
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html_body,
+                    "text": text_body,
+                },
+            )
+            if resp.status_code in (200, 201):
+                print(f"[RESEND] Email sent to {to_email} ✓")
+                return True
+            else:
+                print(f"[RESEND ERROR] Status {resp.status_code}: {resp.text}")
+                return False
+    except Exception as e:
+        print(f"[RESEND ERROR] {e}")
+        return False
+
+
+# ── Gmail SMTP (Fallback — for local development only) ────────────────────────
+
+async def _send_via_smtp(to_email: str, subject: str, html_body: str, text_body: str) -> bool:
+    """
+    Sends email via Gmail SMTP.
+    NOTE: This WILL FAIL on Render free tier (SMTP ports are blocked).
+    Only use this as a local dev fallback.
+    """
+    settings = get_settings()
+
+    if not settings.gmail_user or not settings.gmail_app_password:
+        print("[SMTP] No Gmail credentials set, skipping SMTP.")
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = f"{settings.app_name} <{settings.gmail_user}>"
+    msg["To"]      = to_email
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    try:
+        await aiosmtplib.send(
+            msg,
+            hostname="smtp.gmail.com",
+            port=587,
+            start_tls=True,
+            username=settings.gmail_user,
+            password=settings.gmail_app_password,
+            timeout=10,
+        )
+        print(f"[SMTP] Email sent to {to_email} ✓")
+        return True
+    except Exception as e:
+        print(f"[SMTP ERROR] Failed to send to {to_email}: {e}")
+        return False
+
+
+# ── Unified send — tries Resend first, falls back to SMTP ─────────────────────
+
+async def _send_email(to_email: str, subject: str, html_body: str, text_body: str) -> bool:
+    """
+    Tries Resend first (works on Render), then falls back to Gmail SMTP (local dev).
+    """
+    # Try Resend first
+    sent = await _send_via_resend(to_email, subject, html_body, text_body)
+    if sent:
+        return True
+
+    # Fallback to SMTP (works locally, fails on Render free tier)
+    print(f"[EMAIL] Resend failed, trying SMTP fallback for {to_email}...")
+    sent = await _send_via_smtp(to_email, subject, html_body, text_body)
+    return sent
+
+
+# ── Public API ─────────────────────────────────────────────────────────────────
+
+async def send_magic_link_email(to_email: str, name: str, magic_url: str) -> bool:
+    """
+    Sends the authentication magic link email.
+    Returns True on success, False on failure.
+    """
+    settings = get_settings()
+    subject   = f"Your {settings.app_name} login link"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -42,7 +149,7 @@ async def send_magic_link_email(to_email: str, name: str, magic_url: str) -> boo
 
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
         <p style="color: #bbb; font-size: 12px; text-align: center;">
-          {settings.app_name} · AI-powered Mental Health & Safety Support
+          {settings.app_name} · AI-powered Mental Health &amp; Safety Support
         </p>
       </div>
     </body>
@@ -57,28 +164,8 @@ async def send_magic_link_email(to_email: str, name: str, magic_url: str) -> boo
         f"— The {settings.app_name} Team"
     )
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = f"{settings.app_name} <{settings.gmail_user}>"
-    msg["To"]      = to_email
+    return await _send_email(to_email, subject, html_body, text_body)
 
-    msg.attach(MIMEText(text_body, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
-
-    try:
-        await aiosmtplib.send(
-            msg,
-            hostname="smtp.gmail.com",
-            port=587,
-            start_tls=True,
-            username=settings.gmail_user,
-            password=settings.gmail_app_password,
-        )
-        print(f"[EMAIL] Magic link sent to {to_email}")
-        return True
-    except Exception as e:
-        print(f"[EMAIL ERROR] Failed to send to {to_email}: {e}")
-        return False
 
 async def send_otp_email(to_email: str, name: str, otp: str) -> bool:
     """
@@ -86,7 +173,7 @@ async def send_otp_email(to_email: str, name: str, otp: str) -> bool:
     OTP expires in 10 minutes.
     """
     settings = get_settings()
-    subject  = f"Your {settings.app_name} verification code"
+    subject   = f"Your {settings.app_name} verification code"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -117,7 +204,7 @@ async def send_otp_email(to_email: str, name: str, otp: str) -> bool:
 
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
         <p style="color: #bbb; font-size: 12px; text-align: center;">
-          {settings.app_name} · AI-powered Mental Health & Safety Support
+          {settings.app_name} · AI-powered Mental Health &amp; Safety Support
         </p>
       </div>
     </body>
@@ -131,24 +218,4 @@ async def send_otp_email(to_email: str, name: str, otp: str) -> bool:
         f"— The {settings.app_name} Team"
     )
 
-    msg             = MIMEMultipart("alternative")
-    msg["Subject"]  = subject
-    msg["From"]     = f"{settings.app_name} <{settings.gmail_user}>"
-    msg["To"]       = to_email
-    msg.attach(MIMEText(text_body, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
-
-    try:
-        await aiosmtplib.send(
-            msg,
-            hostname="smtp.gmail.com",
-            port=587,
-            start_tls=True,
-            username=settings.gmail_user,
-            password=settings.gmail_app_password,
-        )
-        print(f"[EMAIL] OTP sent to {to_email}")
-        return True
-    except Exception as e:
-        print(f"[EMAIL ERROR] OTP failed to {to_email}: {e}")
-        return False
+    return await _send_email(to_email, subject, html_body, text_body)
